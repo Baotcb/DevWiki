@@ -1,0 +1,337 @@
+/* ─── EDITOR PAGE LAYOUT ──────────────────────────────────────────────────── */
+.editor-page {
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+/* ─── TOPBAR ──────────────────────────────────────────────────────────────── */
+.editor-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  flex-shrink: 0;
+  gap: 12px;
+  z-index: 10;
+}
+
+.editor-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.editor-topbar__back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.editor-topbar__back:hover { color: var(--color-text); }
+
+.editor-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-topbar__error {
+  font-size: 12px;
+  color: var(--color-error);
+}
+
+/* ─── AUTO-SAVE STATUS BADGE ──────────────────────────────────────────────── */
+.save-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 20px;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.save-badge--idle {
+  color: var(--color-text-muted);
+  background: transparent;
+}
+
+.save-badge--saving {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.save-badge--saved {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+}
+
+.save-badge--error {
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+/* Spinner animation */
+.save-badge__spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── METADATA BAR ────────────────────────────────────────────────────────── */
+.editor-meta-bar {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.editor-title-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.5px;
+  placeholder: color;
+}
+
+.editor-title-input::placeholder { color: var(--color-text-muted); }
+
+.editor-meta-bar__fields {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.editor-meta-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.editor-meta-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* ─── TAG INPUT ───────────────────────────────────────────────────────────── */
+.tag-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: text;
+  background: var(--color-bg-secondary);
+  transition: border-color var(--transition-fast);
+  flex: 1;
+  min-width: 240px;
+}
+
+.tag-input:focus-within {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.tag-input__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 8px;
+  background: var(--color-primary-subtle);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  border-radius: 4px;
+  font-size: 12px;
+  color: #a78bfa;
+  font-family: ui-monospace, Consolas, monospace;
+  white-space: nowrap;
+}
+
+.tag-input__chip button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.6;
+  transition: opacity var(--transition-fast);
+}
+
+.tag-input__chip button:hover { opacity: 1; }
+
+.tag-input__field {
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  color: var(--color-text);
+  font-family: ui-monospace, Consolas, monospace;
+  min-width: 120px;
+  flex: 1;
+}
+
+.tag-input__field::placeholder { color: var(--color-text-muted); }
+
+/* ─── MD EDITOR BODY ──────────────────────────────────────────────────────── */
+.editor-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}
+
+/* Override @uiw/react-md-editor default styles để fit dark theme */
+.editor-body .w-md-editor {
+  width: 100% !important;
+  height: 100% !important;
+  background: var(--color-bg) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: var(--color-text) !important;
+  box-shadow: none !important;
+}
+
+.editor-body .w-md-editor-toolbar {
+  background: var(--color-bg-secondary) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  padding: 6px 12px !important;
+}
+
+.editor-body .w-md-editor-toolbar li > button {
+  color: var(--color-text-secondary) !important;
+  transition: color var(--transition-fast), background var(--transition-fast) !important;
+}
+
+.editor-body .w-md-editor-toolbar li > button:hover {
+  color: var(--color-text) !important;
+  background: var(--color-bg-tertiary) !important;
+}
+
+.editor-body .w-md-editor-text-pre > code,
+.editor-body .w-md-editor-text-input {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace !important;
+  font-size: 14px !important;
+  line-height: 1.7 !important;
+  color: var(--color-text) !important;
+}
+
+.editor-body .w-md-editor-preview {
+  background: var(--color-bg) !important;
+  border-left: 1px solid var(--color-border) !important;
+}
+
+/* Markdown trong preview panel của editor */
+.editor-body .wmde-markdown {
+  background: transparent !important;
+  color: var(--color-text) !important;
+  font-size: 15px !important;
+  font-family: var(--font-sans) !important;
+  line-height: 1.8 !important;
+  padding: 20px 28px !important;
+}
+
+.editor-body .wmde-markdown h1,
+.editor-body .wmde-markdown h2,
+.editor-body .wmde-markdown h3,
+.editor-body .wmde-markdown h4 {
+  color: var(--color-text) !important;
+  border-bottom-color: var(--color-border) !important;
+}
+
+.editor-body .wmde-markdown code {
+  background: var(--color-bg-tertiary) !important;
+  color: #f472b6 !important;
+  border: 1px solid var(--color-border-light) !important;
+}
+
+.editor-body .wmde-markdown pre {
+  background: var(--color-bg-tertiary) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+.editor-body .wmde-markdown pre code {
+  background: transparent !important;
+  border: none !important;
+  color: #e2e8f0 !important;
+}
+
+.editor-body .wmde-markdown blockquote {
+  border-left-color: var(--color-primary) !important;
+  color: var(--color-text-secondary) !important;
+  background: var(--color-primary-subtle) !important;
+}
+
+.editor-body .wmde-markdown a {
+  color: #a78bfa !important;
+}
+
+/* ─── LOADING / ERROR STATES ──────────────────────────────────────────────── */
+.editor-page--loading,
+.editor-page--error {
+  justify-content: center;
+  align-items: center;
+}
+
+.editor-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-text-muted);
+}
+
+.editor-loading__spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.editor-error {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.editor-error span { font-size: 48px; }
+.editor-error h2 { font-size: 18px; color: var(--color-text-secondary); }
