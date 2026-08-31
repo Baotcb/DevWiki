@@ -7,7 +7,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('bootstrap');
 
-  app.enableCors();
+  // Cho phép React frontend (Vite dev server) gọi API
+  app.enableCors({
+    origin: ['http://localhost:5173', 'http://localhost:4173'],
+    credentials: true,
+  });
+
   app.setGlobalPrefix('/api');
 
   // Bật validation cho toàn bộ DTO dùng class-validator
