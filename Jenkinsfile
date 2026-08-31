@@ -101,9 +101,10 @@ pipeline {
 
         stage('Push: Docker Hub') {
             when {
-                anyOf {
-                    branch 'main'
-                    branch 'master'
+                expression {
+                    def branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
+                    return branch == 'main' || branch == 'master' ||
+                           branch == 'origin/main' || branch == 'origin/master'
                 }
             }
             steps {
