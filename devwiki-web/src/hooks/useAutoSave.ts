@@ -38,7 +38,10 @@ export function useAutoSave(data: unknown, options: AutoSaveOptions): AutoSaveRe
   const dataRef     = useRef(data);
 
   // Luôn giữ dataRef up-to-date (tránh stale closure trong timer callback)
-  dataRef.current = data;
+  // Dùng useEffect thay vì gán trực tiếp trong render để tuân thủ react-hooks/refs
+  useEffect(() => {
+    dataRef.current = data;
+  });
 
   const executeSave = useCallback(async () => {
     if (isSavingRef.current) return;
@@ -61,13 +64,18 @@ export function useAutoSave(data: unknown, options: AutoSaveOptions): AutoSaveRe
 
     // Reset timer mỗi khi data thay đổi
     if (timerRef.current) clearTimeout(timerRef.current);
-    setStatus('idle');
+
+    // Dùng setTimeout để tránh gọi setStatus đồng bộ trong effect body
+    const resetTimer = setTimeout(() => {
+      setStatus('idle');
+    }, 0);
 
     timerRef.current = setTimeout(() => {
       executeSave();
     }, delay);
 
     return () => {
+      clearTimeout(resetTimer);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [data, delay, enabled, executeSave]);

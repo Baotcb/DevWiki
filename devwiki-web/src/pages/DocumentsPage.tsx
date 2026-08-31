@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { getDocuments } from '../api/documents.api';
 import { useAuthStore } from '../store/auth.store';
 import type { DocumentSummary, DocumentStatus } from '../types/document.types';
@@ -113,7 +113,6 @@ function SkeletonCard() {
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function DocumentsPage() {
   const user = useAuthStore((s) => s.user);
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [docs, setDocs] = useState<DocumentSummary[]>([]);
@@ -176,6 +175,7 @@ export default function DocumentsPage() {
     }
   }, [page, statusFilter, isMyDocs, user]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadDocs(); }, [loadDocs]);
 
   // Client-side search filter

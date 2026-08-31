@@ -256,6 +256,7 @@ export default function DocumentDetailPage() {
 
   useEffect(() => {
     if (!slug) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
     getDocumentBySlug(slug)
       .then(setDoc)

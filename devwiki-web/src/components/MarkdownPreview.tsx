@@ -43,14 +43,12 @@ function parseMarkdown(md: string): string {
   const result: string[] = [];
   let inList = false;
   let listType = '';
-  let inOrderedList = false;
 
   function closeList() {
     if (inList) {
       result.push(listType === 'ul' ? '</ul>' : '</ol>');
       inList = false;
       listType = '';
-      inOrderedList = false;
     }
   }
 
@@ -87,7 +85,7 @@ function parseMarkdown(md: string): string {
     // Ordered list
     const ol = line.match(/^\d+\. (.+)/);
     if (ol) {
-      if (!inList || listType !== 'ol') { closeList(); result.push('<ol>'); inList = true; listType = 'ol'; inOrderedList = true; }
+      if (!inList || listType !== 'ol') { closeList(); result.push('<ol>'); inList = true; listType = 'ol'; }
       result.push(`<li>${inlineFormat(ol[1])}</li>`);
       continue;
     }
