@@ -1,0 +1,16 @@
+services:
+  devwiki-api:
+    image: devwiki-api:${APP_VERSION:-latest}
+    container_name: devwiki-api
+    restart: always
+    env_file:
+      - ./api.env
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  devwiki-web:
+    image: devwiki-web:${APP_VERSION:-latest}
+    container_name: devwiki-web
+    restart: always
+    ports:
+      - "127.0.0.1:3001:80"
