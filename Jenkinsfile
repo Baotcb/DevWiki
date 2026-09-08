@@ -113,9 +113,13 @@ pipeline {
                         withEnv(["TARGET_VERSION=${TARGET_VERSION}"]) {
                             sh '''
                                 set -eu
+                                test -f "$WORKSPACE/docker-compose.yml"
                                 mkdir -p "$DEPLOY_DIR"
                                 cp "$WORKSPACE/docker-compose.yml" "$DEPLOY_DIR/docker-compose.yml"
+                                test -f "$DEPLOY_DIR/docker-compose.yml"
                                 cd "$DEPLOY_DIR"
+                                echo "Deploy directory: $(pwd)"
+                                ls -l docker-compose.yml
 
                                 cp "$API_ENV_FILE" api.env
                                 chmod 600 api.env
