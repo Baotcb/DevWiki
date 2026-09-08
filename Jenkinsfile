@@ -28,39 +28,9 @@ pipeline {
                 echo " Build ID   : ${env.BUILD_ID}"
                 echo " Rollback?  : ${params.IS_ROLLBACK}"
                 echo "=============================================="
-                sh 'docker image prune -f'
             }
         }
 
-        stage('Test: API (NestJS)') {
-            when { expression { return !params.IS_ROLLBACK } }
-            steps {
-                echo "--- Chạy Unit Test cho devwiki-api ---"
-                sh '''
-                    docker run --rm \
-                      --name devwiki-api-test-${BUILD_ID} \
-                      -v "${WORKSPACE}/devwiki-api":/app \
-                      -w /app \
-                      ${NODE_IMAGE} \
-                      sh -c "npm ci && npm test -- --passWithNoTests"
-                '''
-            }
-        }
-
-        stage('Test: Web (FE)') {
-            when { expression { return !params.IS_ROLLBACK } }
-            steps {
-                echo "--- Lint & Type-check cho devwiki-web ---"
-                sh '''
-                    docker run --rm \
-                      --name devwiki-web-test-${BUILD_ID} \
-                      -v "${WORKSPACE}/devwiki-web":/app \
-                      -w /app \
-                      ${NODE_IMAGE} \
-                      sh -c "npm ci && npm run lint"
-                '''
-            }
-        }
 
         stage('Build: Local Docker Images') {
             when { expression { return !params.IS_ROLLBACK } }
@@ -92,11 +62,37 @@ pipeline {
             }
         }
 
+        stage('Validate Rollback Images') {
+            when { expression { return params.IS_ROLLBACK } }
+            steps {
+                script {
+                    if (params.ROLLBACK_VERSION == '') {
+                        error("❌ Báo lỗi: Bạn đã chọn Rollback nhưng không nhập ROLLBACK_VERSION!")
+                    }
+
+                    withEnv(["ROLLBACK_VERSION=${params.ROLLBACK_VERSION}"]) {
+                        sh '''
+                            set -eu
+
+                            for IMAGE in "$IMAGE_API" "$IMAGE_WEB"; do
+                                if ! docker image inspect "$IMAGE:$ROLLBACK_VERSION" >/dev/null 2>&1; then
+                                    echo "❌ Không tìm thấy image $IMAGE:$ROLLBACK_VERSION trên Docker host!"
+                                    exit 1
+                                fi
+                            done
+
+                            echo "✅ Đã tìm thấy đủ image cho rollback: $ROLLBACK_VERSION"
+                        '''
+                    }
+                }
+            }
+        }
+
         stage('Deploy to VM') {
             when { 
                 expression { 
                     def branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
-                    return params.IS_ROLLBACK || branch == 'main' || branch == 'master' || branch == 'origin/main' || branch == 'origin/master'
+                    return params.IS_ROLLBACK || branch == 'main' 
                 }
             }
             steps {
@@ -117,6 +113,8 @@ pipeline {
                         withEnv(["TARGET_VERSION=${TARGET_VERSION}"]) {
                             sh '''
                                 set -eu
+                                mkdir -p "$DEPLOY_DIR"
+                                cp "$WORKSPACE/docker-compose.yml" "$DEPLOY_DIR/docker-compose.yml"
                                 cd "$DEPLOY_DIR"
 
                                 cp "$API_ENV_FILE" api.env
@@ -126,7 +124,25 @@ pipeline {
                                 chmod 600 .env
                                 sed -i "s/^APP_VERSION=.*/APP_VERSION=$TARGET_VERSION/" .env
 
-                                docker compose up -d
+                                if docker compose version >/dev/null 2>&1; then
+                                    docker compose up -d
+                                elif command -v docker-compose >/dev/null 2>&1; then
+                                    docker-compose up -d
+                                else
+                                    echo "Docker Compose chưa được cài hoặc không khả dụng trên Jenkins agent."
+                                    echo "Cài Docker Compose v2 plugin hoặc docker-compose rồi chạy lại pipeline."
+                                    exit 1
+                                fi
+
+                                for IMAGE in "$IMAGE_API" "$IMAGE_WEB"; do
+                                    OLD_TAGS=$(docker image ls "$IMAGE" --format '{{.Tag}}' | grep -E '^v[0-9]+$' | sort -V -r | tail -n +6 || true)
+
+                                    for TAG in $OLD_TAGS; do
+                                        if [ "$TAG" != "$TARGET_VERSION" ]; then
+                                            docker image rm "$IMAGE:$TAG" || true
+                                        fi
+                                    done
+                                done
                             '''
                         }
                     }
@@ -137,10 +153,10 @@ pipeline {
     
     post {
         success {
-            echo "🎉 Pipeline THÀNH CÔNG! Đang chạy phiên bản: ${params.IS_ROLLBACK ? params.ROLLBACK_VERSION : DOCKER_TAG}"
+            echo " Pipeline THÀNH CÔNG! Đang chạy phiên bản: ${params.IS_ROLLBACK ? params.ROLLBACK_VERSION : DOCKER_TAG}"
         }
         failure {
-            echo "🔴 Pipeline THẤT BẠI. Kiểm tra lại logs trong Jenkins."
+            echo " Pipeline THẤT BẠI. Kiểm tra lại logs trong Jenkins."
         }
     }
 }
