@@ -3,7 +3,7 @@ pipeline {
     
     parameters {
         booleanParam(name: 'IS_ROLLBACK', defaultValue: false, description: 'Tích vào đây nếu muốn Rollback hệ thống')
-        string(name: 'ROLLBACK_VERSION', defaultValue: '', description: 'Nhập tag muốn rollback (Ví dụ: v42). Chỉ có tác dụng khi tích IS_ROLLBACK')
+        string(name: 'ROLLBACK_VERSION', defaultValue: '', description: 'Nhập tag  (Ví dụ: v42).Có tác dụng khi tích IS_ROLLBACK')
     }
 
     triggers {
