@@ -41,7 +41,6 @@ pipeline {
                         sh """
                             docker build \
                               -t ${IMAGE_API}:${DOCKER_TAG} \
-                              -t ${IMAGE_API}:latest \
                               --label "build.id=${BUILD_ID}" \
                               devwiki-api/
                         """
@@ -53,7 +52,6 @@ pipeline {
                         sh """
                             docker build \
                               -t ${IMAGE_WEB}:${DOCKER_TAG} \
-                              -t ${IMAGE_WEB}:latest \
                               --label "build.id=${BUILD_ID}" \
                               devwiki-web/
                         """
@@ -67,7 +65,7 @@ pipeline {
             steps {
                 script {
                     if (params.ROLLBACK_VERSION == '') {
-                        error("❌ Báo lỗi: Bạn đã chọn Rollback nhưng không nhập ROLLBACK_VERSION!")
+                        error("Báo lỗi: Bạn đã chọn Rollback nhưng không nhập ROLLBACK_VERSION!")
                     }
 
                     withEnv(["ROLLBACK_VERSION=${params.ROLLBACK_VERSION}"]) {
@@ -76,12 +74,12 @@ pipeline {
 
                             for IMAGE in "$IMAGE_API" "$IMAGE_WEB"; do
                                 if ! docker image inspect "$IMAGE:$ROLLBACK_VERSION" >/dev/null 2>&1; then
-                                    echo "❌ Không tìm thấy image $IMAGE:$ROLLBACK_VERSION trên Docker host!"
+                                    echo " Không tìm thấy image $IMAGE:$ROLLBACK_VERSION trên Docker host!"
                                     exit 1
                                 fi
                             done
 
-                            echo "✅ Đã tìm thấy đủ image cho rollback: $ROLLBACK_VERSION"
+                            echo " Đã tìm thấy đủ image cho rollback: $ROLLBACK_VERSION"
                         '''
                     }
                 }
@@ -101,25 +99,21 @@ pipeline {
                     def TARGET_VERSION = params.IS_ROLLBACK ? params.ROLLBACK_VERSION : DOCKER_TAG
                     
                     if (params.IS_ROLLBACK && TARGET_VERSION == '') {
-                        error("❌ Báo lỗi: Bạn đã chọn Rollback nhưng không nhập ROLLBACK_VERSION!")
+                        error(" Báo lỗi: Bạn đã chọn Rollback nhưng không nhập ROLLBACK_VERSION!")
                     }
 
-                    echo "🚀 Tiến hành khởi chạy version: ${TARGET_VERSION}"
+                    echo " Tiến hành khởi chạy version: ${TARGET_VERSION}"
 
                     withCredentials([
                         file(credentialsId: 'devwiki-api-env-file', variable: 'API_ENV_FILE'),
                         file(credentialsId: 'devwiki_deploy_env_file', variable: 'DEPLOY_ENV_FILE')
                     ]) {
                         withEnv(["TARGET_VERSION=${TARGET_VERSION}"]) {
-                            sh '''
+                           sh '''
                                 set -eu
-                                test -f "$WORKSPACE/docker-compose.yml"
                                 mkdir -p "$DEPLOY_DIR"
                                 cp "$WORKSPACE/docker-compose.yml" "$DEPLOY_DIR/docker-compose.yml"
-                                test -f "$DEPLOY_DIR/docker-compose.yml"
                                 cd "$DEPLOY_DIR"
-                                echo "Deploy directory: $(pwd)"
-                                ls -l docker-compose.yml
 
                                 cp "$API_ENV_FILE" api.env
                                 chmod 600 api.env
@@ -128,15 +122,7 @@ pipeline {
                                 chmod 600 .env
                                 sed -i "s/^APP_VERSION=.*/APP_VERSION=$TARGET_VERSION/" .env
 
-                                if docker compose version >/dev/null 2>&1; then
-                                    docker compose up -d
-                                elif command -v docker-compose >/dev/null 2>&1; then
-                                    docker-compose up -d
-                                else
-                                    echo "Docker Compose chưa được cài hoặc không khả dụng trên Jenkins agent."
-                                    echo "Cài Docker Compose v2 plugin hoặc docker-compose rồi chạy lại pipeline."
-                                    exit 1
-                                fi
+                                docker compose up -d
 
                                 for IMAGE in "$IMAGE_API" "$IMAGE_WEB"; do
                                     OLD_TAGS=$(docker image ls "$IMAGE" --format '{{.Tag}}' | grep -E '^v[0-9]+$' | sort -V -r | tail -n +6 || true)
