@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// Tạo Axios instance với base URL trỏ tới NestJS API
+// Gọi API qua cùng origin để Nginx xử lý proxy tới service API.
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -31,7 +31,7 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem('refresh_token');
         if (!refreshToken) throw new Error('No refresh token');
 
-        const { data } = await axios.post('http://localhost:3000/api/auth/refresh', {
+        const { data } = await axios.post('/api/auth/refresh', {
           refreshToken,
         });
 
