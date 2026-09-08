@@ -7,7 +7,7 @@ pipeline {
     }
 
     triggers {
-        githubPush()
+    pollSCM('H/3 * * * *')
     }
 
     environment {
