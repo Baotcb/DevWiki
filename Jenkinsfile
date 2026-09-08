@@ -92,7 +92,7 @@ pipeline {
             when { 
                 expression { 
                     def branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
-                    return params.IS_ROLLBACK || branch == 'main' 
+                    return params.IS_ROLLBACK || branch in ['main', 'master', 'origin/main', 'origin/master']
                 }
             }
             steps {
