@@ -130,7 +130,7 @@ pipeline {
                                 docker compose up -d --remove-orphans
 
                                 
-                                REMOTE_SCRIPT
+REMOTE_SCRIPT
                             '''
                         }
                     }
