@@ -1,16 +1,42 @@
 services:
+  mongodb:
+    image: mongo:7
+    container_name: devwiki-mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-devwiki}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-devwiki_password}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-devwiki}
+    volumes:
+      - mongodb_data:/data/db
+
   devwiki-api:
     image: devwiki-api:${APP_VERSION:-latest}
     container_name: devwiki-api
     restart: always
     env_file:
       - ./api.env
-    ports:
-      - "127.0.0.1:3000:3000"
+    environment:
+      MONGO_URI: ${MONGO_URI:-mongodb://devwiki:devwiki_password@mongodb:27017/devwiki?authSource=admin}
+    depends_on:
+      - mongodb
 
   devwiki-web:
     image: devwiki-web:${APP_VERSION:-latest}
     container_name: devwiki-web
     restart: always
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: devwiki-nginx
+    restart: always
+    depends_on:
+      - devwiki-api
+      - devwiki-web
     ports:
-      - "127.0.0.1:5173:80"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  mongodb_data:

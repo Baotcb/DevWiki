@@ -113,6 +113,8 @@ pipeline {
                                 set -eu
                                 mkdir -p "$DEPLOY_DIR"
                                 cp "$WORKSPACE/docker-compose.yml" "$DEPLOY_DIR/docker-compose.yml"
+                                mkdir -p "$DEPLOY_DIR/nginx"
+                                cp "$WORKSPACE/nginx/nginx.conf" "$DEPLOY_DIR/nginx/nginx.conf"
                                 cd "$DEPLOY_DIR"
 
                                 cp "$API_ENV_FILE" api.env
@@ -124,15 +126,7 @@ pipeline {
 
                                 docker compose up -d
 
-                                for IMAGE in "$IMAGE_API" "$IMAGE_WEB"; do
-                                    OLD_TAGS=$(docker image ls "$IMAGE" --format '{{.Tag}}' | grep -E '^v[0-9]+$' | sort -V -r | tail -n +6 || true)
-
-                                    for TAG in $OLD_TAGS; do
-                                        if [ "$TAG" != "$TARGET_VERSION" ]; then
-                                            docker image rm "$IMAGE:$TAG" || true
-                                        fi
-                                    done
-                                done
+                                
                             '''
                         }
                     }
