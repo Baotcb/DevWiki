@@ -90,14 +90,14 @@ pipeline {
 
                                 sshpass -e ssh $SSH_OPTS "$REMOTE" "mkdir -p '$REMOTE_RELEASE/nginx'"
 
-                                scp $SSH_OPTS docker-compose.yml "$REMOTE:$REMOTE_RELEASE/docker-compose.yml"
-                                scp $SSH_OPTS nginx/nginx.conf "$REMOTE:$REMOTE_RELEASE/nginx/nginx.conf"
-                                scp $SSH_OPTS "$API_ENV_FILE" "$REMOTE:$REMOTE_RELEASE/api.env"
-                                scp $SSH_OPTS "$DEPLOY_ENV_FILE" "$REMOTE:$REMOTE_RELEASE/.env"
+                                sshpass -e scp $SSH_OPTS docker-compose.yml "$REMOTE:$REMOTE_RELEASE/docker-compose.yml"
+                                sshpass -e scp $SSH_OPTS nginx/nginx.conf "$REMOTE:$REMOTE_RELEASE/nginx/nginx.conf"
+                                sshpass -e scp $SSH_OPTS "$API_ENV_FILE" "$REMOTE:$REMOTE_RELEASE/api.env"
+                                sshpass -e scp $SSH_OPTS "$DEPLOY_ENV_FILE" "$REMOTE:$REMOTE_RELEASE/.env"
 
                                 if [ "$ROLLBACK_MODE" != "true" ]; then
-                                    scp $SSH_OPTS "$WORKSPACE/$IMAGE_API-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
-                                    scp $SSH_OPTS "$WORKSPACE/$IMAGE_WEB-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
+                                    sshpass -e scp $SSH_OPTS "$WORKSPACE/$IMAGE_API-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
+                                    sshpass -e scp $SSH_OPTS "$WORKSPACE/$IMAGE_WEB-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
                                 fi
 
                                 sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" <<'REMOTE_SCRIPT'
