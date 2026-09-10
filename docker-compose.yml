@@ -24,8 +24,8 @@ services:
     environment:
       MONGO_URI: ${MONGO_URI:-mongodb://devwiki:devwiki_password@mongodb:27017/devwiki?authSource=admin}
     depends_on:
-      mongodb:
-          condition: service_healthy
+      - mongodb
+
 
   devwiki-web:
     image: devwiki-web:${APP_VERSION:-latest}
