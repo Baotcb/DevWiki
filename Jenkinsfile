@@ -32,12 +32,12 @@ pipeline {
             parallel {
                 stage('Build API') {
                     steps {
-                        sh "docker build -t ${IMAGE_API}:${DOCKER_TAG} --label build.id=${BUILD_ID} devwiki-api/"
+                        sh "docker build -t ${IMAGE_API}:${DOCKER_TAG} -t ${IMAGE_API}:latest --label build.id=${BUILD_ID} devwiki-api/"
                     }
                 }
                 stage('Build Web') {
                     steps {
-                        sh "docker build -t ${IMAGE_WEB}:${DOCKER_TAG} --label build.id=${BUILD_ID} devwiki-web/"
+                        sh "docker build -t ${IMAGE_WEB}:${DOCKER_TAG} -t ${IMAGE_WEB}:latest --label build.id=${BUILD_ID} devwiki-web/"
                     }
                 }
             }

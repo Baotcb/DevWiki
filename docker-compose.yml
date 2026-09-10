@@ -4,9 +4,9 @@ services:
     container_name: devwiki-mongodb
     restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-devwiki}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-123456}
-      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-devwiki}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE}
     volumes:
       - mongodb_data:/data/db
     networks:
@@ -22,7 +22,7 @@ services:
     env_file:
       - ./api.env
     environment:
-      MONGO_URI: ${MONGO_URI:-mongodb://devwiki:123456@mongodb:27017/devwiki?authSource=admin}
+      MONGO_URI: ${MONGO_URI:-mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/${MONGO_DATABASE}?authSource=admin}
     depends_on:
       - mongodb
 
