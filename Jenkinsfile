@@ -4,7 +4,7 @@ pipeline {
     parameters {
         booleanParam(name: 'IS_ROLLBACK', defaultValue: false, description: 'Tich vao day neu muon Rollback he thong')
         booleanParam(name: 'USE_LATEST_ENV', defaultValue: false, description: 'Khi Rollback: tich vao day neu muon dung .env/api.env moi nhat thay vi ban cu cua version do')
-        string(name: 'ROLLBACK_VERSION', defaultValue: '', description: 'Nhap tag, vi du: v42')
+        string(name: 'ROLLBACK_VERSION', defaultValue: '', description: 'Nhap tag, vi du: v36')
     }
 
     triggers {
