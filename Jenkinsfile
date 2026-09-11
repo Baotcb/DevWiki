@@ -3,6 +3,7 @@ pipeline {
 
     parameters {
         booleanParam(name: 'IS_ROLLBACK', defaultValue: false, description: 'Tich vao day neu muon Rollback he thong')
+        booleanParam(name: 'USE_LATEST_ENV', defaultValue: false, description: 'Khi Rollback: tich vao day neu muon dung .env/api.env moi nhat thay vi ban cu cua version do')
         string(name: 'ROLLBACK_VERSION', defaultValue: '', description: 'Nhap tag, vi du: v42')
     }
 
@@ -78,60 +79,61 @@ pipeline {
                     ]) {
                         withEnv([
                             "TARGET_VERSION=${targetVersion}",
-                            "ROLLBACK_MODE=${params.IS_ROLLBACK}"
+                            "ROLLBACK_MODE=${params.IS_ROLLBACK}",
+                            "USE_LATEST_ENV=${params.USE_LATEST_ENV}"
                         ]) {
-                            sh '''
-                                set -eu
+                        sh '''
+                            set -eu
 
-                                export SSHPASS="$SSH_PASSWORD"
-                                SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-                                REMOTE="$DEPLOY_USER@$DEPLOY_HOST"
-                                REMOTE_RELEASE="$DEPLOY_DIR/releases/$TARGET_VERSION"
+                            export SSHPASS="$SSH_PASSWORD"
+                            SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+                            REMOTE="$DEPLOY_USER@$DEPLOY_HOST"
+                            REMOTE_RELEASE="$DEPLOY_DIR/releases/$TARGET_VERSION"
 
-                                sshpass -e ssh $SSH_OPTS "$REMOTE" "mkdir -p '$REMOTE_RELEASE/nginx'"
+                            sshpass -e ssh $SSH_OPTS "$REMOTE" "mkdir -p '$REMOTE_RELEASE/nginx'"
 
+                            if [ "$ROLLBACK_MODE" != "true" ]; then
                                 sshpass -e scp $SSH_OPTS docker-compose.yml "$REMOTE:$REMOTE_RELEASE/docker-compose.yml"
                                 sshpass -e scp $SSH_OPTS nginx/nginx.conf "$REMOTE:$REMOTE_RELEASE/nginx/nginx.conf"
                                 sshpass -e scp $SSH_OPTS "$API_ENV_FILE" "$REMOTE:$REMOTE_RELEASE/api.env"
                                 sshpass -e scp $SSH_OPTS "$DEPLOY_ENV_FILE" "$REMOTE:$REMOTE_RELEASE/.env"
+                                sshpass -e scp $SSH_OPTS "$WORKSPACE/$IMAGE_API-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
+                                sshpass -e scp $SSH_OPTS "$WORKSPACE/$IMAGE_WEB-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
+                            elif [ "$USE_LATEST_ENV" = "true" ]; then
+                                sshpass -e scp $SSH_OPTS "$API_ENV_FILE" "$REMOTE:$REMOTE_RELEASE/api.env"
+                                sshpass -e scp $SSH_OPTS "$DEPLOY_ENV_FILE" "$REMOTE:$REMOTE_RELEASE/.env"
+                            fi
 
-                                if [ "$ROLLBACK_MODE" != "true" ]; then
-                                    sshpass -e scp $SSH_OPTS "$WORKSPACE/$IMAGE_API-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
-                                    sshpass -e scp $SSH_OPTS "$WORKSPACE/$IMAGE_WEB-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
-                                fi
+                            sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" <<'REMOTE_SCRIPT'
+                            set -eu
+                            TARGET_VERSION="$1"
+                            ROLLBACK_MODE="$2"
+                            DEPLOY_DIR="$3"
+                            IMAGE_API="$4"
+                            IMAGE_WEB="$5"
+                            RELEASE_DIR="$DEPLOY_DIR/releases/$TARGET_VERSION"
 
-                                sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" <<'REMOTE_SCRIPT'
-                                set -eu
-                                TARGET_VERSION="$1"
-                                ROLLBACK_MODE="$2"
-                                DEPLOY_DIR="$3"
-                                IMAGE_API="$4"
-                                IMAGE_WEB="$5"
-                                RELEASE_DIR="$DEPLOY_DIR/releases/$TARGET_VERSION"
+                            cd "$RELEASE_DIR"
+                            chmod 600 api.env .env
+                            sed -i "s/^APP_VERSION=.*/APP_VERSION=$TARGET_VERSION/" .env
 
-                                cd "$RELEASE_DIR"
-                                chmod 600 api.env .env
-                                sed -i "s/^APP_VERSION=.*/APP_VERSION=$TARGET_VERSION/" .env
+                            if [ "$ROLLBACK_MODE" = "true" ]; then
+                                for IMAGE in "$IMAGE_API" "$IMAGE_WEB"; do
+                                    docker image inspect "$IMAGE:$TARGET_VERSION" >/dev/null 2>&1 || {
+                                        echo "Missing rollback image: $IMAGE:$TARGET_VERSION"
+                                        exit 1
+                                    }
+                                done
+                            else
+                                gunzip -c "$IMAGE_API-$TARGET_VERSION.tar.gz" | docker load
+                                gunzip -c "$IMAGE_WEB-$TARGET_VERSION.tar.gz" | docker load
+                            fi
 
-                                if [ "$ROLLBACK_MODE" = "true" ]; then
-                                    for IMAGE in "$IMAGE_API" "$IMAGE_WEB"; do
-                                        docker image inspect "$IMAGE:$TARGET_VERSION" >/dev/null 2>&1 || {
-                                            echo "Missing rollback image: $IMAGE:$TARGET_VERSION"
-                                            exit 1
-                                        }
-                                    done
-                                else
-                                    gunzip -c "$IMAGE_API-$TARGET_VERSION.tar.gz" | docker load
-                                    gunzip -c "$IMAGE_WEB-$TARGET_VERSION.tar.gz" | docker load
-                                fi
-
-                                ln -sfn "$RELEASE_DIR" "$DEPLOY_DIR/current"
-                                cd "$DEPLOY_DIR/current"
-                                docker compose up -d --remove-orphans
-
-                                
+                            ln -sfn "$RELEASE_DIR" "$DEPLOY_DIR/current"
+                            cd "$DEPLOY_DIR/current"
+                            docker compose up -d --remove-orphans
 REMOTE_SCRIPT
-                            '''
+                        '''
                         }
                     }
                 }
@@ -147,7 +149,7 @@ REMOTE_SCRIPT
             echo "Pipeline thanh cong: ${params.IS_ROLLBACK ? params.ROLLBACK_VERSION : DOCKER_TAG}"
         }
         failure {
-            echo 'Pipeline that bai. Kiem tra log Jenkins va server dich.'
+            echo 'Pipeline that bai.'
         }
     }
 }
