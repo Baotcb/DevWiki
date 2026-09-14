@@ -4,7 +4,9 @@ pipeline {
     parameters {
         booleanParam(name: 'IS_ROLLBACK', defaultValue: false, description: 'Tich vao day neu muon Rollback he thong')
         booleanParam(name: 'USE_LATEST_ENV', defaultValue: false, description: 'Khi Rollback: tich vao day neu muon dung .env/api.env moi nhat thay vi ban cu cua version do')
+        booleanParam(name: 'RESTORE_DATABASE', defaultValue: false, description: 'Khi Rollback: phuc hoi MongoDB tu backup da luu')
         string(name: 'ROLLBACK_VERSION', defaultValue: '', description: 'Nhap tag, vi du: v36')
+        string(name: 'DATABASE_BACKUP_VERSION', defaultValue: '', description: 'Version backup MongoDB can phuc hoi, vi du: v36')
     }
 
     triggers {
@@ -68,6 +70,12 @@ pipeline {
                     if (params.IS_ROLLBACK && !targetVersion?.trim()) {
                         error('Da chon Rollback nhung chua nhap ROLLBACK_VERSION')
                     }
+                    if (params.RESTORE_DATABASE && !params.DATABASE_BACKUP_VERSION?.trim()) {
+                        error('Da chon RESTORE_DATABASE nhung chua nhap DATABASE_BACKUP_VERSION')
+                    }
+                    if (params.RESTORE_DATABASE && !params.IS_ROLLBACK) {
+                        error('RESTORE_DATABASE chi duoc dung khi IS_ROLLBACK=true')
+                    }
 
                     withCredentials([
                         string(credentialsId: env.SSH_CREDENTIALS_ID, variable: 'SSH_PASSWORD'),
@@ -86,7 +94,9 @@ pipeline {
                         withEnv([
                             "TARGET_VERSION=${targetVersion}",
                             "ROLLBACK_MODE=${params.IS_ROLLBACK}",
-                            "USE_LATEST_ENV=${params.USE_LATEST_ENV}"
+                            "USE_LATEST_ENV=${params.USE_LATEST_ENV}",
+                            "RESTORE_DATABASE=${params.RESTORE_DATABASE}",
+                            "DATABASE_BACKUP_VERSION=${params.DATABASE_BACKUP_VERSION}"
                         ]) {
                         sh '''
                             set -eu
@@ -132,18 +142,42 @@ pipeline {
                                 } | sshpass -e ssh $SSH_OPTS "$REMOTE" "cat > '$REMOTE_RELEASE/.env'"
                             fi
 
-                            sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" <<'REMOTE_SCRIPT'
+                            sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" "$RESTORE_DATABASE" "$DATABASE_BACKUP_VERSION" <<'REMOTE_SCRIPT'
                             set -eu
                             TARGET_VERSION="$1"
                             ROLLBACK_MODE="$2"
                             DEPLOY_DIR="$3"
                             IMAGE_API="$4"
                             IMAGE_WEB="$5"
+                            RESTORE_DATABASE="$6"
+                            DATABASE_BACKUP_VERSION="$7"
                             RELEASE_DIR="$DEPLOY_DIR/releases/$TARGET_VERSION"
+                            BACKUP_DIR="/home/JenkinsDeployer/docker/backups/mongodb"
 
                             cd "$RELEASE_DIR"
                             chmod 600 api.env .env
                             sed -i "s/^APP_VERSION=.*/APP_VERSION=$TARGET_VERSION/" .env
+                            set -a
+                            . "$RELEASE_DIR/.env"
+                            set +a
+
+                            docker compose up -d mongodb
+
+                            if [ "$ROLLBACK_MODE" = "true" ] && [ "$RESTORE_DATABASE" = "true" ]; then
+                                DATABASE_BACKUP="$BACKUP_DIR/$DATABASE_BACKUP_VERSION.archive.gz"
+                                if [ ! -f "$DATABASE_BACKUP" ]; then
+                                    echo "Missing database backup: $DATABASE_BACKUP"
+                                    exit 1
+                                fi
+
+                                docker compose stop devwiki-api
+                                docker exec -i devwiki-mongodb mongorestore \
+                                    --username "$MONGO_USERNAME" \
+                                    --password "$MONGO_PASSWORD" \
+                                    --authenticationDatabase admin \
+                                    --db "$MONGO_DATABASE" \
+                                    --archive --gzip --drop < "$DATABASE_BACKUP"
+                            fi
 
                             if [ "$ROLLBACK_MODE" = "true" ]; then
                                 for IMAGE in "$IMAGE_API" "$IMAGE_WEB"; do
@@ -160,6 +194,18 @@ pipeline {
                             ln -sfn "$RELEASE_DIR" "$DEPLOY_DIR/current"
                             cd "$DEPLOY_DIR/current"
                             docker compose up -d --remove-orphans
+
+                            mkdir -p "$BACKUP_DIR"
+                            BACKUP_NAME="$TARGET_VERSION"
+                            if [ "$ROLLBACK_MODE" = "true" ]; then
+                                BACKUP_NAME="rollback-$TARGET_VERSION-$(date -u +%Y%m%d%H%M%S)"
+                            fi
+                            docker exec devwiki-mongodb mongodump \
+                                --username "$MONGO_USERNAME" \
+                                --password "$MONGO_PASSWORD" \
+                                --authenticationDatabase admin \
+                                --db "$MONGO_DATABASE" \
+                                --archive --gzip > "$BACKUP_DIR/$BACKUP_NAME.archive.gz"
 REMOTE_SCRIPT
                         '''
                         }
