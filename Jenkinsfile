@@ -5,9 +5,9 @@ pipeline {
         booleanParam(name: 'IS_ROLLBACK', defaultValue: false, description: 'Tich vao day neu muon Rollback he thong')
         booleanParam(name: 'USE_LATEST_ENV', defaultValue: false, description: 'Khi Rollback: tich vao day neu muon dung .env/api.env moi nhat thay vi ban cu cua version do')
         booleanParam(name: 'RESTORE_DATABASE', defaultValue: false, description: 'Khi Rollback: phuc hoi MongoDB tu backup da luu')
+        booleanParam(name: 'CREATE_DB_BACKUP', defaultValue: false, description: 'Tich vao day neu muon tao file backup MongoDB (v{version}.archive.gz) sau khi build/deploy xong')
         string(name: 'ROLLBACK_VERSION', defaultValue: '', description: 'Nhap tag, vi du: v36')
         string(name: 'DATABASE_BACKUP_VERSION', defaultValue: '', description: 'Version backup MongoDB can phuc hoi, vi du: v36')
-        booleanParam(name: 'CREATE_DB_BACKUP', defaultValue: false, description: 'Tich vao day neu muon tao file backup MongoDB (v{version}.archive.gz) sau khi build/deploy xong')
     }
 
     triggers {
