@@ -212,7 +212,7 @@ pipeline {
                                     --archive --gzip --drop < "$MIGRATION_BACKUP"
                             fi
 
-                            if [ "$ROLLBACK_MODE" = "true" ] && [ "$RESTORE_DATABASE" = "true" ]; then
+                           if [ "$ROLLBACK_MODE" = "true" ] && [ "$RESTORE_DATABASE" = "true" ]; then
                                 DATABASE_BACKUP="$BACKUP_DIR/$DATABASE_BACKUP_VERSION.archive.gz"
                                 if [ ! -f "$DATABASE_BACKUP" ]; then
                                     echo "Missing database backup: $DATABASE_BACKUP"
@@ -220,12 +220,20 @@ pipeline {
                                 fi
 
                                 docker compose stop devwiki-api
+
+                                docker compose exec -T mongodb mongosh --quiet \
+                                    --username "$MONGO_USERNAME" \
+                                    --password "$MONGO_PASSWORD" \
+                                    --authenticationDatabase admin \
+                                    --eval "db.getSiblingDB('$MONGO_DATABASE').dropDatabase()"
+
+                          
                                 docker compose exec -T mongodb mongorestore \
                                     --username "$MONGO_USERNAME" \
                                     --password "$MONGO_PASSWORD" \
                                     --authenticationDatabase admin \
                                     --db "$MONGO_DATABASE" \
-                                    --archive --gzip --drop < "$DATABASE_BACKUP"
+                                    --archive --gzip < "$DATABASE_BACKUP"
                             fi
 
                             if [ "$ROLLBACK_MODE" = "true" ]; then
