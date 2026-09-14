@@ -142,7 +142,7 @@ pipeline {
                                 } | sshpass -e ssh $SSH_OPTS "$REMOTE" "cat > '$REMOTE_RELEASE/.env'"
                             fi
 
-                            sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" "${RESTORE_DATABASE:-false}" "${DATABASE_BACKUP_VERSION:-}" <<'REMOTE_SCRIPT'
+                            sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" "${RESTORE_DATABASE:-false}" "${DATABASE_BACKUP_VERSION:-__NONE__}" <<'REMOTE_SCRIPT'
                             set -eu
                             TARGET_VERSION="$1"
                             ROLLBACK_MODE="$2"
@@ -151,6 +151,9 @@ pipeline {
                             IMAGE_WEB="$5"
                             RESTORE_DATABASE="$6"
                             DATABASE_BACKUP_VERSION="$7"
+                            if [ "$DATABASE_BACKUP_VERSION" = "__NONE__" ]; then
+                                DATABASE_BACKUP_VERSION=""
+                            fi
                             RELEASE_DIR="$DEPLOY_DIR/releases/$TARGET_VERSION"
                             BACKUP_DIR="/home/JenkinsDeployer/docker/backups/mongodb"
 
