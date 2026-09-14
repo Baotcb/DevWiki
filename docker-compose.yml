@@ -55,6 +55,7 @@ services:
 
 volumes:
   mongodb_data:
+    name: devwiki-mongodb-data
 
 networks:
   backend-network:

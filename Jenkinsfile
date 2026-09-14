@@ -107,10 +107,10 @@ pipeline {
                             REMOTE_RELEASE="$DEPLOY_DIR/releases/$TARGET_VERSION"
 
                             sshpass -e ssh $SSH_OPTS "$REMOTE" "mkdir -p '$REMOTE_RELEASE/nginx'"
+                            sshpass -e scp $SSH_OPTS docker-compose.yml "$REMOTE:$REMOTE_RELEASE/docker-compose.yml"
+                            sshpass -e scp $SSH_OPTS nginx/nginx.conf "$REMOTE:$REMOTE_RELEASE/nginx/nginx.conf"
 
                             if [ "$ROLLBACK_MODE" != "true" ]; then
-                                sshpass -e scp $SSH_OPTS docker-compose.yml "$REMOTE:$REMOTE_RELEASE/docker-compose.yml"
-                                sshpass -e scp $SSH_OPTS nginx/nginx.conf "$REMOTE:$REMOTE_RELEASE/nginx/nginx.conf"
                                 {
                                     printf 'PORT=%s\n' "$API_PORT"
                                     printf 'JWT_SECRET=%s\n' "$API_JWT_SECRET"
@@ -164,7 +164,33 @@ pipeline {
                             . "$RELEASE_DIR/.env"
                             set +a
 
+                            mkdir -p "$BACKUP_DIR"
+                            MIGRATION_REQUIRED="false"
+                            MIGRATION_BACKUP="$BACKUP_DIR/migration-$(date -u +%Y%m%d%H%M%S).archive.gz"
+                            if ! docker volume inspect devwiki-mongodb-data >/dev/null 2>&1; then
+                                docker start devwiki-mongodb >/dev/null 2>&1 || true
+                                if [ "$(docker inspect -f '{{.State.Running}}' devwiki-mongodb 2>/dev/null || true)" = "true" ]; then
+                                    docker exec devwiki-mongodb mongodump \
+                                        --username "$MONGO_USERNAME" \
+                                        --password "$MONGO_PASSWORD" \
+                                        --authenticationDatabase admin \
+                                        --db "$MONGO_DATABASE" \
+                                        --archive --gzip > "$MIGRATION_BACKUP"
+                                    MIGRATION_REQUIRED="true"
+                                fi
+                            fi
+
+                            docker rm -f devwiki-mongodb devwiki-api devwiki-web devwiki-nginx 2>/dev/null || true
                             docker compose up -d mongodb
+
+                            if [ "$MIGRATION_REQUIRED" = "true" ]; then
+                                docker compose exec -T mongodb mongorestore \
+                                    --username "$MONGO_USERNAME" \
+                                    --password "$MONGO_PASSWORD" \
+                                    --authenticationDatabase admin \
+                                    --db "$MONGO_DATABASE" \
+                                    --archive --gzip --drop < "$MIGRATION_BACKUP"
+                            fi
 
                             if [ "$ROLLBACK_MODE" = "true" ] && [ "$RESTORE_DATABASE" = "true" ]; then
                                 DATABASE_BACKUP="$BACKUP_DIR/$DATABASE_BACKUP_VERSION.archive.gz"
@@ -174,7 +200,7 @@ pipeline {
                                 fi
 
                                 docker compose stop devwiki-api
-                                docker exec -i devwiki-mongodb mongorestore \
+                                docker compose exec -T mongodb mongorestore \
                                     --username "$MONGO_USERNAME" \
                                     --password "$MONGO_PASSWORD" \
                                     --authenticationDatabase admin \
@@ -203,7 +229,7 @@ pipeline {
                             if [ "$ROLLBACK_MODE" = "true" ]; then
                                 BACKUP_NAME="rollback-$TARGET_VERSION-$(date -u +%Y%m%d%H%M%S)"
                             fi
-                            docker exec devwiki-mongodb mongodump \
+                            docker compose exec -T mongodb mongodump \
                                 --username "$MONGO_USERNAME" \
                                 --password "$MONGO_PASSWORD" \
                                 --authenticationDatabase admin \
