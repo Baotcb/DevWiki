@@ -5,7 +5,7 @@ pipeline {
         booleanParam(name: 'IS_ROLLBACK', defaultValue: false, description: 'Tich vao day neu muon Rollback he thong')
         booleanParam(name: 'USE_LATEST_ENV', defaultValue: false, description: 'Khi Rollback: tich vao day neu muon dung .env/api.env moi nhat thay vi ban cu cua version do')
         booleanParam(name: 'RESTORE_DATABASE', defaultValue: false, description: 'Khi Rollback: phuc hoi MongoDB tu backup da luu')
-        booleanParam(name: 'CREATE_DB_BACKUP', defaultValue: false, description: 'Tich vao day neu muon tao file backup MongoDB (v{version}.archive.gz) sau khi build/deploy xong')
+        booleanParam(name: 'CREATE_DB_BACKUP', defaultValue: false, description: 'Tich vao day neu muon tao file backup MongoDB (build{BUILD_ID}.archive.gz) sau khi build/deploy xong')
         string(name: 'ROLLBACK_VERSION', defaultValue: '', description: 'Nhap tag, vi du: v36')
         string(name: 'DATABASE_BACKUP_VERSION', defaultValue: '', description: 'Version backup MongoDB can phuc hoi, vi du: v36')
     }
@@ -76,6 +76,9 @@ pipeline {
                     }
                     if (params.RESTORE_DATABASE && !params.IS_ROLLBACK) {
                         error('RESTORE_DATABASE chi duoc dung khi IS_ROLLBACK=true')
+                    }
+                    if (params.RESTORE_DATABASE && params.CREATE_DB_BACKUP) {
+                        error('Khong the tick dong thoi RESTORE_DATABASE va CREATE_DB_BACKUP: RESTORE_DATABASE da tu dong tao snapshot truoc khi rollback (build${env.BUILD_ID}.archive.gz), tick them CREATE_DB_BACKUP se tao file backup CUNG TEN o cuoi script va GHI DE mat snapshot vua tao. Chi tick mot trong hai.')
                     }
 
                     withCredentials([
@@ -228,7 +231,7 @@ pipeline {
                                 docker compose stop devwiki-api
 
                                 if [ "$CREATE_DB_BACKUP" = "true" ]; then
-                                    SNAPSHOT_FILE="$BACKUP_DIR/v${JENKINS_BUILD_ID}.archive.gz"
+                                    SNAPSHOT_FILE="$BACKUP_DIR/build${JENKINS_BUILD_ID}.archive.gz"
                                     docker compose exec -T mongodb mongodump \
                                         --username "$MONGO_USERNAME" \
                                         --password "$MONGO_PASSWORD" \
@@ -241,7 +244,7 @@ pipeline {
                                         echo "WARNING: DB snapshot rong (DB hien tai co the dang rong)"
                                     fi
                                 else
-                                    echo "Bo qua tao snapshot DB truoc rollback "
+                                    echo "Bo qua tao snapshot DB truoc rollback"
                                 fi
 
                                 docker compose exec -T mongodb mongosh --quiet \
@@ -277,10 +280,7 @@ pipeline {
 
                             if [ "$CREATE_DB_BACKUP" = "true" ]; then
                                 mkdir -p "$BACKUP_DIR"
-                                BACKUP_NAME="$TARGET_VERSION"
-                                if [ "$ROLLBACK_MODE" = "true" ]; then
-                                    BACKUP_NAME="rollback-build${JENKINS_BUILD_ID}"
-                                fi
+                                BACKUP_NAME="build${JENKINS_BUILD_ID}"
                                 BACKUP_FILE="$BACKUP_DIR/$BACKUP_NAME.archive.gz"
                                 docker compose exec -T mongodb mongodump \
                                     --username "$MONGO_USERNAME" \
