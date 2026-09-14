@@ -227,17 +227,21 @@ pipeline {
 
                                 docker compose stop devwiki-api
 
-                                PRE_ROLLBACK_SNAPSHOT="$BACKUP_DIR/pre-rollback-$TARGET_VERSION-build${JENKINS_BUILD_ID}.archive.gz"
-                                docker compose exec -T mongodb mongodump \
-                                    --username "$MONGO_USERNAME" \
-                                    --password "$MONGO_PASSWORD" \
-                                    --authenticationDatabase admin \
-                                    --db "$MONGO_DATABASE" \
-                                    --archive --gzip < /dev/null > "$PRE_ROLLBACK_SNAPSHOT"
-                                if [ -s "$PRE_ROLLBACK_SNAPSHOT" ]; then
-                                    echo "Pre-rollback snapshot saved: $PRE_ROLLBACK_SNAPSHOT"
+                                if [ "$CREATE_DB_BACKUP" = "true" ]; then
+                                    SNAPSHOT_FILE="$BACKUP_DIR/v${JENKINS_BUILD_ID}.archive.gz"
+                                    docker compose exec -T mongodb mongodump \
+                                        --username "$MONGO_USERNAME" \
+                                        --password "$MONGO_PASSWORD" \
+                                        --authenticationDatabase admin \
+                                        --db "$MONGO_DATABASE" \
+                                        --archive --gzip < /dev/null > "$SNAPSHOT_FILE"
+                                    if [ -s "$SNAPSHOT_FILE" ]; then
+                                        echo "DB snapshot saved: $SNAPSHOT_FILE"
+                                    else
+                                        echo "WARNING: DB snapshot rong (DB hien tai co the dang rong)"
+                                    fi
                                 else
-                                    echo "WARNING: pre-rollback snapshot is empty (current DB may already be empty)"
+                                    echo "Bo qua tao snapshot DB truoc rollback "
                                 fi
 
                                 docker compose exec -T mongodb mongosh --quiet \
@@ -275,7 +279,7 @@ pipeline {
                                 mkdir -p "$BACKUP_DIR"
                                 BACKUP_NAME="$TARGET_VERSION"
                                 if [ "$ROLLBACK_MODE" = "true" ]; then
-                                    BACKUP_NAME="rollback-$TARGET_VERSION-build${JENKINS_BUILD_ID}"
+                                    BACKUP_NAME="rollback-build${JENKINS_BUILD_ID}"
                                 fi
                                 BACKUP_FILE="$BACKUP_DIR/$BACKUP_NAME.archive.gz"
                                 docker compose exec -T mongodb mongodump \
