@@ -126,7 +126,8 @@ pipeline {
                                 } | sshpass -e ssh $SSH_OPTS "$REMOTE" "cat > '$REMOTE_RELEASE/.env'"
                                 sshpass -e scp $SSH_OPTS "$WORKSPACE/$IMAGE_API-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
                                 sshpass -e scp $SSH_OPTS "$WORKSPACE/$IMAGE_WEB-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
-                            elif [ "$USE_LATEST_ENV" = "true" ]; then
+                            elif [ "$USE_LATEST_ENV" = "true" ] || ! sshpass -e ssh $SSH_OPTS "$REMOTE" "test -f '$REMOTE_RELEASE/api.env' && test -f '$REMOTE_RELEASE/.env'"; then
+                                echo "Rollback release is missing environment files; writing current Jenkins secrets"
                                 {
                                     printf 'PORT=%s\n' "$API_PORT"
                                     printf 'JWT_SECRET=%s\n' "$API_JWT_SECRET"
