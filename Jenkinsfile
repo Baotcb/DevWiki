@@ -98,7 +98,8 @@ pipeline {
                             "USE_LATEST_ENV=${params.USE_LATEST_ENV}",
                             "RESTORE_DATABASE=${params.RESTORE_DATABASE}",
                             "DATABASE_BACKUP_VERSION=${params.DATABASE_BACKUP_VERSION}",
-                            "CREATE_DB_BACKUP=${params.CREATE_DB_BACKUP}"
+                            "CREATE_DB_BACKUP=${params.CREATE_DB_BACKUP}",
+                            "JENKINS_BUILD_ID=${env.BUILD_ID}"
                         ]) {
                         sh '''
                             set -eu
@@ -145,7 +146,7 @@ pipeline {
                                 } | sshpass -e ssh $SSH_OPTS "$REMOTE" "cat > '$REMOTE_RELEASE/.env'"
                             fi
 
-                            sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" "${RESTORE_DATABASE:-false}" "${DATABASE_BACKUP_VERSION:-__NONE__}" "${CREATE_DB_BACKUP:-false}" <<'REMOTE_SCRIPT'
+                            sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" "${RESTORE_DATABASE:-false}" "${DATABASE_BACKUP_VERSION:-__NONE__}" "${CREATE_DB_BACKUP:-false}" "$JENKINS_BUILD_ID" <<'REMOTE_SCRIPT'
                             set -eu
                             TARGET_VERSION="$1"
                             ROLLBACK_MODE="$2"
@@ -155,6 +156,7 @@ pipeline {
                             RESTORE_DATABASE="$6"
                             DATABASE_BACKUP_VERSION="$7"
                             CREATE_DB_BACKUP="$8"
+                            JENKINS_BUILD_ID="$9"
                             if [ "$DATABASE_BACKUP_VERSION" = "__NONE__" ]; then
                                 DATABASE_BACKUP_VERSION=""
                             fi
@@ -225,7 +227,7 @@ pipeline {
 
                                 docker compose stop devwiki-api
 
-                                PRE_ROLLBACK_SNAPSHOT="$BACKUP_DIR/pre-rollback-$TARGET_VERSION-$(date -u +%Y%m%d%H%M%S).archive.gz"
+                                PRE_ROLLBACK_SNAPSHOT="$BACKUP_DIR/pre-rollback-$TARGET_VERSION-build${JENKINS_BUILD_ID}.archive.gz"
                                 docker compose exec -T mongodb mongodump \
                                     --username "$MONGO_USERNAME" \
                                     --password "$MONGO_PASSWORD" \
@@ -273,7 +275,7 @@ pipeline {
                                 mkdir -p "$BACKUP_DIR"
                                 BACKUP_NAME="$TARGET_VERSION"
                                 if [ "$ROLLBACK_MODE" = "true" ]; then
-                                    BACKUP_NAME="rollback-$TARGET_VERSION-$(date -u +%Y%m%d%H%M%S)"
+                                    BACKUP_NAME="rollback-$TARGET_VERSION-build${JENKINS_BUILD_ID}"
                                 fi
                                 BACKUP_FILE="$BACKUP_DIR/$BACKUP_NAME.archive.gz"
                                 docker compose exec -T mongodb mongodump \
