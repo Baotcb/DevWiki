@@ -222,13 +222,25 @@ pipeline {
 
                                 docker compose stop devwiki-api
 
+                                PRE_ROLLBACK_SNAPSHOT="$BACKUP_DIR/pre-rollback-$TARGET_VERSION-$(date -u +%Y%m%d%H%M%S).archive.gz"
+                                docker compose exec -T mongodb mongodump \
+                                    --username "$MONGO_USERNAME" \
+                                    --password "$MONGO_PASSWORD" \
+                                    --authenticationDatabase admin \
+                                    --db "$MONGO_DATABASE" \
+                                    --archive --gzip < /dev/null > "$PRE_ROLLBACK_SNAPSHOT"
+                                if [ -s "$PRE_ROLLBACK_SNAPSHOT" ]; then
+                                    echo "Pre-rollback snapshot saved: $PRE_ROLLBACK_SNAPSHOT"
+                                else
+                                    echo "WARNING: pre-rollback snapshot is empty (current DB may already be empty)"
+                                fi
+
                                 docker compose exec -T mongodb mongosh --quiet \
                                     --username "$MONGO_USERNAME" \
                                     --password "$MONGO_PASSWORD" \
                                     --authenticationDatabase admin \
-                                    --eval "db.getSiblingDB('$MONGO_DATABASE').dropDatabase()"
+                                    --eval "db.getSiblingDB('$MONGO_DATABASE').dropDatabase()" < /dev/null
 
-                          
                                 docker compose exec -T mongodb mongorestore \
                                     --username "$MONGO_USERNAME" \
                                     --password "$MONGO_PASSWORD" \
