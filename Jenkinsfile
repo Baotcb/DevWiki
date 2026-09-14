@@ -74,8 +74,14 @@ pipeline {
                         string(credentialsId: env.DEPLOY_HOST_ID, variable: 'DEPLOY_HOST'),
                         string(credentialsId: env.DEPLOY_USER_ID, variable: 'DEPLOY_USER'),
                         string(credentialsId: env.DEPLOY_DIR_ID, variable: 'DEPLOY_DIR'),
-                        file(credentialsId: 'devwiki-api-env-file', variable: 'API_ENV_FILE'),
-                        file(credentialsId: 'devwiki_deploy_env_file', variable: 'DEPLOY_ENV_FILE')
+                        string(credentialsId: 'devwiki-api-port', variable: 'API_PORT'),
+                        string(credentialsId: 'devwiki-api-jwt-secret', variable: 'API_JWT_SECRET'),
+                        string(credentialsId: 'devwiki-api-jwt-expires-in', variable: 'API_JWT_EXPIRES_IN'),
+                        string(credentialsId: 'devwiki-api-jwt-refresh-secret', variable: 'API_JWT_REFRESH_SECRET'),
+                        string(credentialsId: 'devwiki-api-jwt-refresh-expires-in', variable: 'API_JWT_REFRESH_EXPIRES_IN'),
+                        string(credentialsId: 'devwiki-mongo-username', variable: 'MONGO_USERNAME'),
+                        string(credentialsId: 'devwiki-mongo-password', variable: 'MONGO_PASSWORD'),
+                        string(credentialsId: 'devwiki-mongo-database', variable: 'MONGO_DATABASE')
                     ]) {
                         withEnv([
                             "TARGET_VERSION=${targetVersion}",
@@ -95,13 +101,35 @@ pipeline {
                             if [ "$ROLLBACK_MODE" != "true" ]; then
                                 sshpass -e scp $SSH_OPTS docker-compose.yml "$REMOTE:$REMOTE_RELEASE/docker-compose.yml"
                                 sshpass -e scp $SSH_OPTS nginx/nginx.conf "$REMOTE:$REMOTE_RELEASE/nginx/nginx.conf"
-                                sshpass -e scp $SSH_OPTS "$API_ENV_FILE" "$REMOTE:$REMOTE_RELEASE/api.env"
-                                sshpass -e scp $SSH_OPTS "$DEPLOY_ENV_FILE" "$REMOTE:$REMOTE_RELEASE/.env"
+                                {
+                                    printf 'PORT=%s\n' "$API_PORT"
+                                    printf 'JWT_SECRET=%s\n' "$API_JWT_SECRET"
+                                    printf 'JWT_EXPIRES_IN=%s\n' "$API_JWT_EXPIRES_IN"
+                                    printf 'JWT_REFRESH_SECRET=%s\n' "$API_JWT_REFRESH_SECRET"
+                                    printf 'JWT_REFRESH_EXPIRES_IN=%s\n' "$API_JWT_REFRESH_EXPIRES_IN"
+                                } | sshpass -e ssh $SSH_OPTS "$REMOTE" "cat > '$REMOTE_RELEASE/api.env'"
+                                {
+                                    printf 'APP_VERSION=%s\n' "$TARGET_VERSION"
+                                    printf 'MONGO_USERNAME=%s\n' "$MONGO_USERNAME"
+                                    printf 'MONGO_PASSWORD=%s\n' "$MONGO_PASSWORD"
+                                    printf 'MONGO_DATABASE=%s\n' "$MONGO_DATABASE"
+                                } | sshpass -e ssh $SSH_OPTS "$REMOTE" "cat > '$REMOTE_RELEASE/.env'"
                                 sshpass -e scp $SSH_OPTS "$WORKSPACE/$IMAGE_API-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
                                 sshpass -e scp $SSH_OPTS "$WORKSPACE/$IMAGE_WEB-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
                             elif [ "$USE_LATEST_ENV" = "true" ]; then
-                                sshpass -e scp $SSH_OPTS "$API_ENV_FILE" "$REMOTE:$REMOTE_RELEASE/api.env"
-                                sshpass -e scp $SSH_OPTS "$DEPLOY_ENV_FILE" "$REMOTE:$REMOTE_RELEASE/.env"
+                                {
+                                    printf 'PORT=%s\n' "$API_PORT"
+                                    printf 'JWT_SECRET=%s\n' "$API_JWT_SECRET"
+                                    printf 'JWT_EXPIRES_IN=%s\n' "$API_JWT_EXPIRES_IN"
+                                    printf 'JWT_REFRESH_SECRET=%s\n' "$API_JWT_REFRESH_SECRET"
+                                    printf 'JWT_REFRESH_EXPIRES_IN=%s\n' "$API_JWT_REFRESH_EXPIRES_IN"
+                                } | sshpass -e ssh $SSH_OPTS "$REMOTE" "cat > '$REMOTE_RELEASE/api.env'"
+                                {
+                                    printf 'APP_VERSION=%s\n' "$TARGET_VERSION"
+                                    printf 'MONGO_USERNAME=%s\n' "$MONGO_USERNAME"
+                                    printf 'MONGO_PASSWORD=%s\n' "$MONGO_PASSWORD"
+                                    printf 'MONGO_DATABASE=%s\n' "$MONGO_DATABASE"
+                                } | sshpass -e ssh $SSH_OPTS "$REMOTE" "cat > '$REMOTE_RELEASE/.env'"
                             fi
 
                             sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" <<'REMOTE_SCRIPT'

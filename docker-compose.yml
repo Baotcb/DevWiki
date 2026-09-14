@@ -51,6 +51,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - /home/JenkinsDeployer/docker/ssl:/etc/nginx/ssl:ro
+      - /home/JenkinsDeployer/docker/logs/nginx:/var/log/nginx
 
 volumes:
   mongodb_data:
