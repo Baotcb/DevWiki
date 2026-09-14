@@ -156,6 +156,7 @@ pipeline {
                             fi
                             RELEASE_DIR="$DEPLOY_DIR/releases/$TARGET_VERSION"
                             BACKUP_DIR="/home/JenkinsDeployer/docker/backups/mongodb"
+                            export COMPOSE_PROJECT_NAME="devwiki"
 
                             cd "$RELEASE_DIR"
                             chmod 600 api.env .env
