@@ -183,6 +183,24 @@ pipeline {
                             docker rm -f devwiki-mongodb devwiki-api devwiki-web devwiki-nginx 2>/dev/null || true
                             docker compose up -d mongodb
 
+                            MONGO_READY="false"
+                            for attempt in $(seq 1 60); do
+                                if docker compose exec -T mongodb mongosh --quiet \
+                                    --username "$MONGO_USERNAME" \
+                                    --password "$MONGO_PASSWORD" \
+                                    --authenticationDatabase admin \
+                                    --eval 'db.runCommand({ ping: 1 }).ok' 2>/dev/null | grep -q '^1$'; then
+                                    MONGO_READY="true"
+                                    break
+                                fi
+                                sleep 2
+                            done
+                            if [ "$MONGO_READY" != "true" ]; then
+                                echo "MongoDB did not become ready or credentials were rejected"
+                                docker compose logs mongodb
+                                exit 1
+                            fi
+
                             if [ "$MIGRATION_REQUIRED" = "true" ]; then
                                 docker compose exec -T mongodb mongorestore \
                                     --username "$MONGO_USERNAME" \
