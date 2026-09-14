@@ -175,7 +175,7 @@ pipeline {
                                         --password "$MONGO_PASSWORD" \
                                         --authenticationDatabase admin \
                                         --db "$MONGO_DATABASE" \
-                                        --archive --gzip > "$MIGRATION_BACKUP"
+                                        --archive --gzip < /dev/null > "$MIGRATION_BACKUP"
                                     MIGRATION_REQUIRED="true"
                                 fi
                             fi
@@ -190,7 +190,7 @@ pipeline {
                                     --username "$MONGO_USERNAME" \
                                     --password "$MONGO_PASSWORD" \
                                     --authenticationDatabase admin \
-                                    --eval 'db.runCommand({ ping: 1 }).ok' 2>/dev/null | grep -q '^1$'; then
+                                    --eval 'db.runCommand({ ping: 1 }).ok' < /dev/null 2>/dev/null | grep -q '^1$'; then
                                     MONGO_READY="true"
                                     break
                                 fi
@@ -242,6 +242,7 @@ pipeline {
                             ln -sfn "$RELEASE_DIR" "$DEPLOY_DIR/current"
                             cd "$DEPLOY_DIR/current"
                             docker compose up -d --remove-orphans
+                            docker compose ps
 
                             mkdir -p "$BACKUP_DIR"
                             BACKUP_NAME="$TARGET_VERSION"
@@ -254,7 +255,7 @@ pipeline {
                                 --password "$MONGO_PASSWORD" \
                                 --authenticationDatabase admin \
                                 --db "$MONGO_DATABASE" \
-                                --archive --gzip > "$BACKUP_FILE"
+                                --archive --gzip < /dev/null > "$BACKUP_FILE"
                             test -s "$BACKUP_FILE"
                             echo "MongoDB backup created: $BACKUP_FILE"
                             ls -lh "$BACKUP_FILE"
