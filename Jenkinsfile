@@ -7,6 +7,7 @@ pipeline {
         booleanParam(name: 'RESTORE_DATABASE', defaultValue: false, description: 'Khi Rollback: phuc hoi MongoDB tu backup da luu')
         string(name: 'ROLLBACK_VERSION', defaultValue: '', description: 'Nhap tag, vi du: v36')
         string(name: 'DATABASE_BACKUP_VERSION', defaultValue: '', description: 'Version backup MongoDB can phuc hoi, vi du: v36')
+        booleanParam(name: 'CREATE_DB_BACKUP', defaultValue: false, description: 'Tich vao day neu muon tao file backup MongoDB (v{version}.archive.gz) sau khi build/deploy xong')
     }
 
     triggers {
@@ -96,7 +97,8 @@ pipeline {
                             "ROLLBACK_MODE=${params.IS_ROLLBACK}",
                             "USE_LATEST_ENV=${params.USE_LATEST_ENV}",
                             "RESTORE_DATABASE=${params.RESTORE_DATABASE}",
-                            "DATABASE_BACKUP_VERSION=${params.DATABASE_BACKUP_VERSION}"
+                            "DATABASE_BACKUP_VERSION=${params.DATABASE_BACKUP_VERSION}",
+                            "CREATE_DB_BACKUP=${params.CREATE_DB_BACKUP}"
                         ]) {
                         sh '''
                             set -eu
@@ -143,7 +145,7 @@ pipeline {
                                 } | sshpass -e ssh $SSH_OPTS "$REMOTE" "cat > '$REMOTE_RELEASE/.env'"
                             fi
 
-                            sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" "${RESTORE_DATABASE:-false}" "${DATABASE_BACKUP_VERSION:-__NONE__}" <<'REMOTE_SCRIPT'
+                            sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" "${RESTORE_DATABASE:-false}" "${DATABASE_BACKUP_VERSION:-__NONE__}" "${CREATE_DB_BACKUP:-false}" <<'REMOTE_SCRIPT'
                             set -eu
                             TARGET_VERSION="$1"
                             ROLLBACK_MODE="$2"
@@ -152,6 +154,7 @@ pipeline {
                             IMAGE_WEB="$5"
                             RESTORE_DATABASE="$6"
                             DATABASE_BACKUP_VERSION="$7"
+                            CREATE_DB_BACKUP="$8"
                             if [ "$DATABASE_BACKUP_VERSION" = "__NONE__" ]; then
                                 DATABASE_BACKUP_VERSION=""
                             fi
@@ -266,21 +269,25 @@ pipeline {
                             docker compose up -d --remove-orphans
                             docker compose ps
 
-                            mkdir -p "$BACKUP_DIR"
-                            BACKUP_NAME="$TARGET_VERSION"
-                            if [ "$ROLLBACK_MODE" = "true" ]; then
-                                BACKUP_NAME="rollback-$TARGET_VERSION-$(date -u +%Y%m%d%H%M%S)"
+                            if [ "$CREATE_DB_BACKUP" = "true" ]; then
+                                mkdir -p "$BACKUP_DIR"
+                                BACKUP_NAME="$TARGET_VERSION"
+                                if [ "$ROLLBACK_MODE" = "true" ]; then
+                                    BACKUP_NAME="rollback-$TARGET_VERSION-$(date -u +%Y%m%d%H%M%S)"
+                                fi
+                                BACKUP_FILE="$BACKUP_DIR/$BACKUP_NAME.archive.gz"
+                                docker compose exec -T mongodb mongodump \
+                                    --username "$MONGO_USERNAME" \
+                                    --password "$MONGO_PASSWORD" \
+                                    --authenticationDatabase admin \
+                                    --db "$MONGO_DATABASE" \
+                                    --archive --gzip < /dev/null > "$BACKUP_FILE"
+                                test -s "$BACKUP_FILE"
+                                echo "MongoDB backup created: $BACKUP_FILE"
+                                ls -lh "$BACKUP_FILE"
+                            else
+                                echo "Bo qua tao file backup MongoDB (CREATE_DB_BACKUP=false)"
                             fi
-                            BACKUP_FILE="$BACKUP_DIR/$BACKUP_NAME.archive.gz"
-                            docker compose exec -T mongodb mongodump \
-                                --username "$MONGO_USERNAME" \
-                                --password "$MONGO_PASSWORD" \
-                                --authenticationDatabase admin \
-                                --db "$MONGO_DATABASE" \
-                                --archive --gzip < /dev/null > "$BACKUP_FILE"
-                            test -s "$BACKUP_FILE"
-                            echo "MongoDB backup created: $BACKUP_FILE"
-                            ls -lh "$BACKUP_FILE"
 REMOTE_SCRIPT
                         '''
                         }
