@@ -180,6 +180,7 @@ pipeline {
                                 fi
                             fi
 
+                            docker volume create devwiki-mongodb-data >/dev/null 2>&1 || true
                             docker rm -f devwiki-mongodb devwiki-api devwiki-web devwiki-nginx 2>/dev/null || true
                             docker compose up -d mongodb
 
@@ -247,12 +248,16 @@ pipeline {
                             if [ "$ROLLBACK_MODE" = "true" ]; then
                                 BACKUP_NAME="rollback-$TARGET_VERSION-$(date -u +%Y%m%d%H%M%S)"
                             fi
+                            BACKUP_FILE="$BACKUP_DIR/$BACKUP_NAME.archive.gz"
                             docker compose exec -T mongodb mongodump \
                                 --username "$MONGO_USERNAME" \
                                 --password "$MONGO_PASSWORD" \
                                 --authenticationDatabase admin \
                                 --db "$MONGO_DATABASE" \
-                                --archive --gzip > "$BACKUP_DIR/$BACKUP_NAME.archive.gz"
+                                --archive --gzip > "$BACKUP_FILE"
+                            test -s "$BACKUP_FILE"
+                            echo "MongoDB backup created: $BACKUP_FILE"
+                            ls -lh "$BACKUP_FILE"
 REMOTE_SCRIPT
                         '''
                         }
