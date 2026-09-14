@@ -142,7 +142,7 @@ pipeline {
                                 } | sshpass -e ssh $SSH_OPTS "$REMOTE" "cat > '$REMOTE_RELEASE/.env'"
                             fi
 
-                            sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" "$RESTORE_DATABASE" "$DATABASE_BACKUP_VERSION" <<'REMOTE_SCRIPT'
+                            sshpass -e ssh $SSH_OPTS "$REMOTE" bash -s -- "$TARGET_VERSION" "$ROLLBACK_MODE" "$DEPLOY_DIR" "$IMAGE_API" "$IMAGE_WEB" "${RESTORE_DATABASE:-false}" "${DATABASE_BACKUP_VERSION:-}" <<'REMOTE_SCRIPT'
                             set -eu
                             TARGET_VERSION="$1"
                             ROLLBACK_MODE="$2"
