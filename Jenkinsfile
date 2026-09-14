@@ -280,7 +280,7 @@ pipeline {
 
                             if [ "$CREATE_DB_BACKUP" = "true" ]; then
                                 mkdir -p "$BACKUP_DIR"
-                                BACKUP_NAME="build${JENKINS_BUILD_ID}"
+                                BACKUP_NAME="v${JENKINS_BUILD_ID}"
                                 BACKUP_FILE="$BACKUP_DIR/$BACKUP_NAME.archive.gz"
                                 docker compose exec -T mongodb mongodump \
                                     --username "$MONGO_USERNAME" \
