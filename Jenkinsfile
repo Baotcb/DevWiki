@@ -77,10 +77,6 @@ pipeline {
                     if (params.RESTORE_DATABASE && !params.IS_ROLLBACK) {
                         error('RESTORE_DATABASE chi duoc dung khi IS_ROLLBACK=true')
                     }
-                    if (params.RESTORE_DATABASE && params.CREATE_DB_BACKUP) {
-                        error('Khong the tick dong thoi RESTORE_DATABASE va CREATE_DB_BACKUP: RESTORE_DATABASE da tu dong tao snapshot truoc khi rollback (build${env.BUILD_ID}.archive.gz), tick them CREATE_DB_BACKUP se tao file backup CUNG TEN o cuoi script va GHI DE mat snapshot vua tao. Chi tick mot trong hai.')
-                    }
-
                     withCredentials([
                         string(credentialsId: env.SSH_CREDENTIALS_ID, variable: 'SSH_PASSWORD'),
                         string(credentialsId: env.DEPLOY_HOST_ID, variable: 'DEPLOY_HOST'),
@@ -230,22 +226,16 @@ pipeline {
 
                                 docker compose stop devwiki-api
 
-                                if [ "$CREATE_DB_BACKUP" = "true" ]; then
-                                    SNAPSHOT_FILE="$BACKUP_DIR/build${JENKINS_BUILD_ID}.archive.gz"
-                                    docker compose exec -T mongodb mongodump \
-                                        --username "$MONGO_USERNAME" \
-                                        --password "$MONGO_PASSWORD" \
-                                        --authenticationDatabase admin \
-                                        --db "$MONGO_DATABASE" \
-                                        --archive --gzip < /dev/null > "$SNAPSHOT_FILE"
-                                    if [ -s "$SNAPSHOT_FILE" ]; then
-                                        echo "DB snapshot saved: $SNAPSHOT_FILE"
-                                    else
-                                        echo "WARNING: DB snapshot rong (DB hien tai co the dang rong)"
-                                    fi
-                                else
-                                    echo "Bo qua tao snapshot DB truoc rollback"
-                                fi
+                                SNAPSHOT_FILE="$BACKUP_DIR/v${JENKINS_BUILD_ID}.archive.gz"
+                                docker compose exec -T mongodb mongodump \
+                                    --username "$MONGO_USERNAME" \
+                                    --password "$MONGO_PASSWORD" \
+                                    --authenticationDatabase admin \
+                                    --db "$MONGO_DATABASE" \
+                                    --archive --gzip < /dev/null > "$SNAPSHOT_FILE"
+                                test -s "$SNAPSHOT_FILE"
+                                echo "DB snapshot saved before restore: $SNAPSHOT_FILE"
+                                ls -lh "$SNAPSHOT_FILE"
 
                                 docker compose exec -T mongodb mongosh --quiet \
                                     --username "$MONGO_USERNAME" \
