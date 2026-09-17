@@ -268,6 +268,26 @@ pipeline {
                             docker compose up -d --remove-orphans
                             docker compose ps
 
+                            DEADLINE=$(($(date +%s) + 90))
+                            while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+                                UNHEALTHY=$(docker compose ps --format json | \
+                                    grep -o '"Health":"[a-z]*"' | grep -vc '"Health":"healthy"\|"Health":""' || true)
+                                if [ "$UNHEALTHY" = "0" ]; then
+                                    echo "Tat ca container healthy"
+                                    break
+                                fi
+                                sleep 3
+                            done
+
+                            if [ "$UNHEALTHY" != "0" ]; then
+                                echo "Deploy that bai: container khong healthy sau 90s"
+                                docker compose logs --tail=50
+                                exit 1
+                            fi
+
+
+
+
                             if [ "$CREATE_DB_BACKUP" = "true" ]; then
                                 mkdir -p "$BACKUP_DIR"
                                 BACKUP_NAME="v${JENKINS_BUILD_ID}"
