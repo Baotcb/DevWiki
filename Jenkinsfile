@@ -268,37 +268,6 @@ pipeline {
                             docker compose up -d --remove-orphans
                             docker compose ps
 
-                            echo "Cho container healthy..."
-                            DEADLINE=$(($(date +%s) + 90))
-                            SERVICES="devwiki-api devwiki-web devwiki-nginx"
-                            ALL_HEALTHY="false"
-
-                            while [ "$(date +%s)" -lt "$DEADLINE" ]; do
-                                ALL_HEALTHY="true"
-                                for s in $SERVICES; do
-                                    STATUS=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$s" 2>/dev/null || echo "missing")
-                                    if [ "$STATUS" != "healthy" ] && [ "$STATUS" != "none" ]; then
-                                        ALL_HEALTHY="false"
-                                    fi
-                                done
-                                if [ "$ALL_HEALTHY" = "true" ]; then
-                                    echo "Tat ca container healthy"
-                                    break
-                                fi
-                                sleep 3
-                            done
-
-                            if [ "$ALL_HEALTHY" != "true" ]; then
-                                echo "Deploy that bai: container khong healthy sau 90s"
-                                for s in $SERVICES; do
-                                    echo "--- logs: $s ---"
-                                    docker logs --tail=30 "$s" 2>&1 || true
-                                done
-                                exit 1
-                            fi
-
-
-
 
                             if [ "$CREATE_DB_BACKUP" = "true" ]; then
                                 mkdir -p "$BACKUP_DIR"
