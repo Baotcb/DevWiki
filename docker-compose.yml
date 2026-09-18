@@ -41,6 +41,18 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    labels:
+      - "autoheal=true"
+
+
+  autoheal:
+    image: willfarrell/autoheal
+    container_name: autoheal
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 
   devwiki-web:
