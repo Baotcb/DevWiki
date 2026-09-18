@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth.store';
+import NotificationToast from './NotificationToast';
 import './AppLayout.css';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -28,6 +29,7 @@ export default function AppLayout() {
 
   return (
     <div className="app-layout">
+      <NotificationToast token={localStorage.getItem('access_token')} />
       {/* ── SIDEBAR ─────────────────────────────────────────────── */}
       <aside className="sidebar">
         <div className="sidebar__brand">

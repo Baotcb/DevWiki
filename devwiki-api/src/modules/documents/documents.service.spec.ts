@@ -3,6 +3,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { DocumentsService } from './documents.service';
 import { DocumentItem } from './schemas/document.schema';
 import { DocumentVersion } from './schemas/document-version.schema';
+import { NotificationGateway } from '../notifications/notification.gateway';
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
@@ -30,6 +31,7 @@ describe('DocumentsService', () => {
         DocumentsService,
         { provide: getModelToken(DocumentItem.name), useValue: mockDocumentModel },
         { provide: getModelToken(DocumentVersion.name), useValue: mockVersionModel },
+        { provide: NotificationGateway, useValue: { notify: jest.fn() } },
       ],
     }).compile();
 
