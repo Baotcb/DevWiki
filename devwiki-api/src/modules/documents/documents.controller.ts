@@ -10,7 +10,21 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  BadRequestException,
+  Res,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+
+type UploadedFile = {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+};
 import {
   ApiTags,
   ApiOperation,
@@ -37,7 +51,7 @@ import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
 @UseGuards(JwtAuthGuard)           // Toàn bộ controller yêu cầu JWT
 @ApiBearerAuth('JWT-auth')
 export class DocumentsController {
-  constructor(private readonly documentsService: DocumentsService) {}
+  constructor(private readonly documentsService: DocumentsService) { }
 
   // ─── LIST ─────────────────────────────────────────────────────────────────────
 
@@ -106,6 +120,46 @@ export class DocumentsController {
   async findById(@Param('id') id: string) {
     const result = await this.documentsService.findById(id);
     return { data: result };
+  }
+
+  @Post(':id/attachments')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }))
+  @ApiOperation({ summary: 'Upload file đính kèm (tối đa 25 MB)' })
+  async uploadAttachment(
+    @Param('id') id: string,
+    @UploadedFile() file: UploadedFile,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    if (!file) throw new BadRequestException('Vui lòng chọn file để upload.');
+    const result = await this.documentsService.uploadAttachment(id, file, user);
+    return { message: 'Upload file thành công.', data: result };
+  }
+
+  @Get(':id/attachments/:attachmentId')
+  @ApiOperation({ summary: 'Tải file đính kèm' })
+  async downloadAttachment(
+    @Param('id') id: string,
+    @Param('attachmentId') attachmentId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { attachment, stream } = await this.documentsService.getAttachment(id, attachmentId);
+    response.set({
+      'Content-Type': attachment.mimeType,
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(attachment.originalName)}"`,
+    });
+    return new StreamableFile(stream);
+  }
+
+  @Delete(':id/attachments/:attachmentId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Xóa file đính kèm' })
+  async removeAttachment(
+    @Param('id') id: string,
+    @Param('attachmentId') attachmentId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const result = await this.documentsService.removeAttachment(id, attachmentId, user);
+    return { message: 'Đã xóa file đính kèm.', data: result };
   }
 
   // ─── UPDATE ───────────────────────────────────────────────────────────────────

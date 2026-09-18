@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import MDEditor from '@uiw/react-md-editor';
-import { createDocument, getDocumentById, updateDocument } from '../api/documents.api';
+import {
+  createDocument,
+  deleteDocumentAttachment,
+  getDocumentById,
+  updateDocument,
+  uploadDocumentAttachment,
+} from '../api/documents.api';
 import { useAutoSave } from '../hooks/useAutoSave';
 import type { Document } from '../types/document.types';
 import './DocumentEditorPage.css';
@@ -95,13 +101,14 @@ export default function DocumentEditorPage() {
   const isEditMode = Boolean(id);
 
   // ── State ────────────────────────────────────────────────────────────────
-  const [doc, setDoc]           = useState<Document | null>(null);
-  const [title, setTitle]       = useState('');
-  const [content, setContent]   = useState('');
-  const [tags, setTags]         = useState<string[]>([]);
+  const [doc, setDoc] = useState<Document | null>(null);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(isEditMode);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError]       = useState('');
+  const [error, setError] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   // docId chỉ có sau khi tạo lần đầu
   const docIdRef = useRef<string | null>(id ?? null);
@@ -182,6 +189,33 @@ export default function DocumentEditorPage() {
   // ── View document sau khi lưu ────────────────────────────────────────────
   function handleViewDoc() {
     if (doc?.slug) navigate(`/documents/${doc.slug}`);
+  }
+
+  async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !docIdRef.current) return;
+
+    setIsUploading(true);
+    setError('');
+    try {
+      const updated = await uploadDocumentAttachment(docIdRef.current, file);
+      setDoc(updated);
+    } catch {
+      setError('Không thể upload file. File có thể vượt quá 25 MB.');
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  async function handleDeleteAttachment(attachmentId: string) {
+    if (!docIdRef.current || !window.confirm('Xóa file đính kèm này?')) return;
+    try {
+      const updated = await deleteDocumentAttachment(docIdRef.current, attachmentId);
+      setDoc(updated);
+    } catch {
+      setError('Không thể xóa file đính kèm.');
+    }
   }
 
   // ── Loading state ────────────────────────────────────────────────────────
@@ -284,6 +318,20 @@ export default function DocumentEditorPage() {
           <div className="editor-meta-field">
             <label className="editor-meta-label">Tags</label>
             <TagInput tags={tags} onChange={setTags} />
+          </div>
+          <div className="editor-meta-field editor-attachments-field">
+            <label className="editor-meta-label">File</label>
+            <label className={`btn btn--ghost btn--sm editor-upload-btn ${!docIdRef.current ? 'editor-upload-btn--disabled' : ''}`}>
+              {isUploading ? 'Đang upload...' : '+ Thêm file'}
+              <input type="file" hidden disabled={!docIdRef.current || isUploading} onChange={handleUpload} />
+            </label>
+            {!docIdRef.current && <span className="editor-attachment-hint">Lưu tài liệu trước</span>}
+            {doc?.attachments?.map((attachment) => (
+              <span key={attachment._id} className="editor-attachment-chip" title={attachment.originalName}>
+                {attachment.originalName}
+                <button type="button" onClick={() => handleDeleteAttachment(attachment._id)} aria-label={`Xóa ${attachment.originalName}`}>×</button>
+              </span>
+            ))}
           </div>
         </div>
       </div>

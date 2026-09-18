@@ -10,19 +10,44 @@ export enum DocumentStatus {
   ARCHIVED = 'ARCHIVED',
 }
 
+@Schema({ _id: true, timestamps: false })
+export class DocumentAttachment {
+  readonly _id!: Types.ObjectId;
+
+  @Prop({ required: true })
+  originalName!: string;
+
+  @Prop({ required: true })
+  storedName!: string;
+
+  @Prop({ required: true })
+  mimeType!: string;
+
+  @Prop({ required: true })
+  size!: number;
+
+  @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
+  uploadedBy!: Types.ObjectId;
+
+  @Prop({ required: true, default: Date.now })
+  uploadedAt!: Date;
+}
+
+export const DocumentAttachmentSchema = SchemaFactory.createForClass(DocumentAttachment);
+
 @Schema({ timestamps: true, collection: 'documents' })
 export class DocumentItem {
   // ── Core ──────────────────────────────────────────────────────────────────
   @Prop({ required: true, trim: true })
-  title: string;
+  title!: string;
 
   /** Slug URL-safe, unique. Hỗ trợ cả tiếng Anh lẫn tiếng Việt (đã normalize). */
   @Prop({ required: true, unique: true, index: true })
-  slug: string;
+  slug!: string;
 
   /** Nội dung Markdown raw — luôn là phiên bản hiện tại (mới nhất). */
   @Prop({ required: true, default: '' })
-  content: string;
+  content!: string;
 
   // ── Status & Flags ────────────────────────────────────────────────────────
   @Prop({
@@ -31,14 +56,14 @@ export class DocumentItem {
     default: DocumentStatus.DRAFT,
     index: true,
   })
-  status: DocumentStatus;
+  status!: DocumentStatus;
 
   @Prop({ default: false })
-  isOutdated: boolean;
+  isOutdated!: boolean;
 
   // ── Ownership ─────────────────────────────────────────────────────────────
   @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
-  authorId: Types.ObjectId;
+  authorId!: Types.ObjectId;
 
   /** Người chỉnh sửa lần cuối (có thể khác tác giả gốc). */
   @Prop({ type: Types.ObjectId, ref: 'User' })
@@ -49,16 +74,19 @@ export class DocumentItem {
   categoryId?: Types.ObjectId;
 
   @Prop([String])
-  tags: string[];
+  tags!: string[];
+
+  @Prop({ type: [DocumentAttachmentSchema], default: [] })
+  attachments!: DocumentAttachment[];
 
   // ── Versioning ────────────────────────────────────────────────────────────
   /** Số version hiện tại — tăng dần mỗi khi save. Bắt đầu từ 1. */
   @Prop({ default: 1 })
-  currentVersion: number;
+  currentVersion!: number;
 
   // ── Analytics ─────────────────────────────────────────────────────────────
   @Prop({ default: 0 })
-  viewCount: number;
+  viewCount!: number;
 
   @Prop()
   publishedAt?: Date;
@@ -79,7 +107,7 @@ export class DocumentItem {
     enum: ['pending', 'done', 'failed'],
     default: 'pending',
   })
-  embeddingStatus: 'pending' | 'done' | 'failed';
+  embeddingStatus!: 'pending' | 'done' | 'failed';
 
   /** Thời điểm embedding được cập nhật lần cuối */
   @Prop()

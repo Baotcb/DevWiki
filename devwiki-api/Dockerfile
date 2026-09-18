@@ -31,6 +31,7 @@ COPY --from=builder /app/dist ./dist
 
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN mkdir -p /app/uploads && chown -R appuser:appgroup /app/uploads
 USER appuser
 
 EXPOSE 3000
