@@ -36,6 +36,7 @@ devwiki-api/dist/
 devwiki-api/coverage/
 devwiki-api/.nest/
 devwiki-api/.nyc_output/
+devwiki-api/uploads/
 
 # ==========================================
 # FRONTEND (React Vite - devwiki-web)

@@ -4,6 +4,14 @@ import type { User } from './auth.types';
 export type DocumentStatus = 'DRAFT' | 'IN_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
 export type EmbeddingStatus = 'pending' | 'done' | 'failed';
 
+export interface DocumentAttachment {
+  _id: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+}
+
 // ── Document author (populated từ DB) ────────────────────────────────────────
 export type DocumentAuthor = Pick<User, 'id' | 'fullName' | 'avatarUrl'>;
 
@@ -23,6 +31,7 @@ export interface Document {
   viewCount: number;
   publishedAt?: string;
   embeddingStatus: EmbeddingStatus;
+  attachments: DocumentAttachment[];
   createdAt: string;
   updatedAt: string;
 }

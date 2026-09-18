@@ -14,6 +14,18 @@ import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { QueryDocumentDto } from './dto/query-document.dto';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
+import { createReadStream } from 'node:fs';
+import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { DocumentAttachment } from './schemas/document.schema';
+
+type UploadedFile = {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+};
 
 @Injectable()
 export class DocumentsService {
@@ -23,7 +35,11 @@ export class DocumentsService {
 
     @InjectModel(DocumentVersion.name)
     private readonly versionModel: Model<DocumentVersionDocument>,
-  ) {}
+  ) { }
+
+  private get uploadDir(): string {
+    return process.env.UPLOAD_DIR || join(process.cwd(), 'uploads');
+  }
 
   // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -132,10 +148,10 @@ export class DocumentsService {
 
     // Build sort
     const SORT_MAP: Record<string, Record<string, number>> = {
-      updatedAt_desc:  { updatedAt: -1 },
-      createdAt_desc:  { createdAt: -1 },
-      viewCount_desc:  { viewCount: -1 },
-      title_asc:       { title: 1 },
+      updatedAt_desc: { updatedAt: -1 },
+      createdAt_desc: { createdAt: -1 },
+      viewCount_desc: { viewCount: -1 },
+      title_asc: { title: 1 },
     };
     const sort = SORT_MAP[query.sort ?? 'updatedAt_desc'];
 
@@ -182,7 +198,7 @@ export class DocumentsService {
     this.documentModel
       .updateOne({ _id: (doc as DocumentDocument & { _id: Types.ObjectId })._id }, { $inc: { viewCount: 1 } })
       .exec()
-      .catch(() => {/* ignore */});
+      .catch(() => {/* ignore */ });
 
     return doc as DocumentDocument;
   }
@@ -199,6 +215,82 @@ export class DocumentsService {
       throw new NotFoundException('Không tìm thấy tài liệu.');
     }
     return doc as DocumentDocument;
+  }
+
+  async uploadAttachment(
+    id: string,
+    file: UploadedFile,
+    user: JwtPayload,
+  ): Promise<DocumentDocument> {
+    const doc = await this.documentModel.findById(id);
+    if (!doc || doc.status === DocumentStatus.ARCHIVED) {
+      throw new NotFoundException('Không tìm thấy tài liệu.');
+    }
+
+    this.assertCanEdit(doc, user);
+    await mkdir(this.uploadDir, { recursive: true });
+
+    const storedName = `${randomUUID()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    await writeFile(join(this.uploadDir, storedName), file.buffer);
+
+    const attachment: Partial<DocumentAttachment> = {
+      originalName: file.originalname,
+      storedName,
+      mimeType: file.mimetype || 'application/octet-stream',
+      size: file.size,
+      uploadedBy: new Types.ObjectId(user.sub),
+      uploadedAt: new Date(),
+    };
+
+    try {
+      const updated = await this.documentModel
+        .findByIdAndUpdate(
+          id,
+          { $push: { attachments: attachment }, $set: { updatedBy: new Types.ObjectId(user.sub) } },
+          { new: true },
+        )
+        .lean();
+      return updated as DocumentDocument;
+    } catch (error) {
+      await unlink(join(this.uploadDir, storedName)).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async getAttachment(id: string, attachmentId: string) {
+    const doc = await this.findById(id);
+    const attachment = (doc.attachments ?? []).find(
+      (item) => (item as unknown as { _id: Types.ObjectId })._id.toString() === attachmentId,
+    );
+    if (!attachment) throw new NotFoundException('Không tìm thấy file đính kèm.');
+
+    return {
+      attachment,
+      stream: createReadStream(join(this.uploadDir, attachment.storedName)),
+    };
+  }
+
+  async removeAttachment(id: string, attachmentId: string, user: JwtPayload): Promise<DocumentDocument> {
+    const doc = await this.documentModel.findById(id);
+    if (!doc || doc.status === DocumentStatus.ARCHIVED) {
+      throw new NotFoundException('Không tìm thấy tài liệu.');
+    }
+
+    this.assertCanEdit(doc, user);
+    const attachment = (doc.attachments ?? []).find(
+      (item) => (item as unknown as { _id: Types.ObjectId })._id.toString() === attachmentId,
+    );
+    if (!attachment) throw new NotFoundException('Không tìm thấy file đính kèm.');
+
+    await unlink(join(this.uploadDir, attachment.storedName)).catch(() => undefined);
+    const updated = await this.documentModel
+      .findByIdAndUpdate(
+        id,
+        { $pull: { attachments: { _id: attachmentId } }, $set: { updatedBy: new Types.ObjectId(user.sub) } },
+        { new: true },
+      )
+      .lean();
+    return updated as DocumentDocument;
   }
 
   // ─── UPDATE ───────────────────────────────────────────────────────────────────

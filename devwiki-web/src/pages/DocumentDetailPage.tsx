@@ -7,6 +7,8 @@ import {
   deleteDocument,
   markOutdated,
   restoreDocumentVersion,
+  deleteDocumentAttachment,
+  downloadDocumentAttachment,
 } from '../api/documents.api';
 import { useAuthStore } from '../store/auth.store';
 import type { Document, DocumentVersionSummary, DocumentVersion } from '../types/document.types';
@@ -48,14 +50,14 @@ function VersionHistoryPanel({
   onClose: () => void;
   onRestored: (doc: Document) => void;
 }) {
-  const [versions, setVersions]             = useState<DocumentVersionSummary[]>([]);
-  const [selected, setSelected]             = useState<DocumentVersion | null>(null);
-  const [prevVersion, setPrevVersion]       = useState<DocumentVersion | null>(null);
-  const [loading, setLoading]               = useState(true);
+  const [versions, setVersions] = useState<DocumentVersionSummary[]>([]);
+  const [selected, setSelected] = useState<DocumentVersion | null>(null);
+  const [prevVersion, setPrevVersion] = useState<DocumentVersion | null>(null);
+  const [loading, setLoading] = useState(true);
   const [loadingVersion, setLoadingVersion] = useState(false);
-  const [activeTab, setActiveTab]           = useState<'preview' | 'diff'>('preview');
-  const [isRestoring, setIsRestoring]       = useState(false);
-  const [restoreMsg, setRestoreMsg]         = useState('');
+  const [activeTab, setActiveTab] = useState<'preview' | 'diff'>('preview');
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreMsg, setRestoreMsg] = useState('');
 
   const canRestore = userRole === 'EDITOR' || userRole === 'ADMIN';
 
@@ -117,7 +119,7 @@ function VersionHistoryPanel({
         <h3>Lịch sử phiên bản</h3>
         <button className="version-panel__close" onClick={onClose} aria-label="Đóng">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
       </div>
@@ -136,9 +138,9 @@ function VersionHistoryPanel({
         ) : (
           <div className="version-timeline">
             {versions.map((v) => {
-              const isCurrent  = v.versionNumber === currentVersion;
+              const isCurrent = v.versionNumber === currentVersion;
               const isSelected = selected?.versionNumber === v.versionNumber;
-              const author     = typeof v.createdBy === 'object' ? v.createdBy : null;
+              const author = typeof v.createdBy === 'object' ? v.createdBy : null;
 
               return (
                 <div
@@ -246,13 +248,13 @@ function VersionHistoryPanel({
 export default function DocumentDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const user     = useAuthStore((s) => s.user);
+  const user = useAuthStore((s) => s.user);
 
-  const [doc, setDoc]           = useState<Document | null>(null);
+  const [doc, setDoc] = useState<Document | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError]       = useState('');
+  const [error, setError] = useState('');
   const [showVersions, setShowVersions] = useState(false);
-  const [isDeleting, setIsDeleting]     = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -283,6 +285,15 @@ export default function DocumentDetailPage() {
       await deleteDocument(doc._id);
       navigate('/documents', { replace: true });
     } catch { setIsDeleting(false); }
+  }
+
+  async function handleDeleteAttachment(attachmentId: string) {
+    if (!doc) return;
+    if (!window.confirm('Xóa file đính kèm này?')) return;
+    try {
+      const updated = await deleteDocumentAttachment(doc._id, attachmentId);
+      setDoc(updated);
+    } catch { /* ignore */ }
   }
 
   // ── Loading ─────────────────────────────────────────────────────────────────
@@ -319,7 +330,7 @@ export default function DocumentDetailPage() {
       <div className="detail-topbar">
         <Link to="/documents" className="detail-topbar__back" id="back-to-list-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="15 18 9 12 15 6"/>
+            <polyline points="15 18 9 12 15 6" />
           </svg>
           Danh sách
         </Link>
@@ -338,7 +349,7 @@ export default function DocumentDetailPage() {
             id="show-versions-btn"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
             </svg>
             v{doc.currentVersion} · Lịch sử
           </button>
@@ -347,8 +358,8 @@ export default function DocumentDetailPage() {
             <>
               <Link to={`/documents/${doc._id}/edit`} className="btn btn--ghost btn--sm" id="edit-doc-btn">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                 </svg>
                 Chỉnh sửa
               </Link>
@@ -405,8 +416,8 @@ export default function DocumentDetailPage() {
               <div className="detail-header__stats">
                 <span className="stat-chip">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
                   </svg>
                   {doc.viewCount} lượt xem
                 </span>
@@ -430,6 +441,24 @@ export default function DocumentDetailPage() {
               </div>
             )}
           </div>
+
+          {doc.attachments?.length > 0 && (
+            <section className="attachments-section" aria-label="File đính kèm">
+              <h2 className="attachments-section__title">File đính kèm</h2>
+              <div className="attachments-list">
+                {doc.attachments.map((attachment) => (
+                  <div key={attachment._id} className="attachment-row">
+                    <span className="attachment-row__name" title={attachment.originalName}>{attachment.originalName}</span>
+                    <span className="attachment-row__size">{Math.ceil(attachment.size / 1024)} KB</span>
+                    <button className="btn btn--ghost btn--sm" onClick={() => downloadDocumentAttachment(doc._id, attachment)}>Tải xuống</button>
+                    {canEdit && (
+                      <button className="btn btn--danger btn--sm" onClick={() => handleDeleteAttachment(attachment._id)}>Xóa</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </article>
 
         {/* ── Version History Panel ─────────────────────────── */}

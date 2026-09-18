@@ -7,17 +7,18 @@ import type {
   DocumentVersionSummary,
   CreateDocumentPayload,
   UpdateDocumentPayload,
+  DocumentAttachment,
 } from '../types/document.types';
 
 // ── Danh sách tài liệu (có filter, pagination) ────────────────────────────────
 export async function getDocuments(query: DocumentQuery = {}): Promise<DocumentListResponse> {
   const params = new URLSearchParams();
-  if (query.page)      params.set('page', String(query.page));
-  if (query.limit)     params.set('limit', String(query.limit));
-  if (query.status)    params.set('status', query.status);
-  if (query.authorId)  params.set('authorId', query.authorId);
-  if (query.tag)       params.set('tag', query.tag);
-  if (query.sort)      params.set('sort', query.sort);
+  if (query.page) params.set('page', String(query.page));
+  if (query.limit) params.set('limit', String(query.limit));
+  if (query.status) params.set('status', query.status);
+  if (query.authorId) params.set('authorId', query.authorId);
+  if (query.tag) params.set('tag', query.tag);
+  if (query.sort) params.set('sort', query.sort);
   if (query.isOutdated !== undefined) params.set('isOutdated', String(query.isOutdated));
 
   const { data } = await api.get<{ data: DocumentListResponse }>(`/documents?${params}`);
@@ -46,6 +47,39 @@ export async function createDocument(payload: CreateDocumentPayload): Promise<Do
 export async function updateDocument(id: string, payload: UpdateDocumentPayload): Promise<Document> {
   const { data } = await api.patch<{ message: string; data: Document }>(`/documents/${id}`, payload);
   return data.data;
+}
+
+export async function uploadDocumentAttachment(id: string, file: File): Promise<Document> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post<{ message: string; data: Document }>(
+    `/documents/${id}/attachments`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return data.data;
+}
+
+export async function deleteDocumentAttachment(id: string, attachmentId: string): Promise<Document> {
+  const { data } = await api.delete<{ message: string; data: Document }>(
+    `/documents/${id}/attachments/${attachmentId}`,
+  );
+  return data.data;
+}
+
+export async function downloadDocumentAttachment(
+  id: string,
+  attachment: DocumentAttachment,
+): Promise<void> {
+  const { data } = await api.get<Blob>(`/documents/${id}/attachments/${attachment._id}`, {
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(data);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = attachment.originalName;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Publish ───────────────────────────────────────────────────────────────────

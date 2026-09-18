@@ -37,7 +37,9 @@
   white-space: nowrap;
 }
 
-.editor-topbar__back:hover { color: var(--color-text); }
+.editor-topbar__back:hover {
+  color: var(--color-text);
+}
 
 .editor-topbar__actions {
   display: flex;
@@ -96,7 +98,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ─── METADATA BAR ────────────────────────────────────────────────────────── */
@@ -123,7 +127,9 @@
   placeholder: color;
 }
 
-.editor-title-input::placeholder { color: var(--color-text-muted); }
+.editor-title-input::placeholder {
+  color: var(--color-text-muted);
+}
 
 .editor-meta-bar__fields {
   display: flex;
@@ -137,6 +143,46 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.editor-attachments-field {
+  flex-wrap: wrap;
+}
+
+.editor-upload-btn {
+  cursor: pointer;
+}
+
+.editor-upload-btn--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editor-attachment-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.editor-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 220px;
+  padding: 4px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-attachment-chip button {
+  background: none;
+  border: 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
 }
 
 .editor-meta-label {
@@ -194,7 +240,9 @@
   transition: opacity var(--transition-fast);
 }
 
-.tag-input__chip button:hover { opacity: 1; }
+.tag-input__chip button:hover {
+  opacity: 1;
+}
 
 .tag-input__field {
   background: none;
@@ -207,7 +255,9 @@
   flex: 1;
 }
 
-.tag-input__field::placeholder { color: var(--color-text-muted); }
+.tag-input__field::placeholder {
+  color: var(--color-text-muted);
+}
 
 /* ─── MD EDITOR BODY ──────────────────────────────────────────────────────── */
 .editor-body {
@@ -233,17 +283,17 @@
   padding: 6px 12px !important;
 }
 
-.editor-body .w-md-editor-toolbar li > button {
+.editor-body .w-md-editor-toolbar li>button {
   color: var(--color-text-secondary) !important;
   transition: color var(--transition-fast), background var(--transition-fast) !important;
 }
 
-.editor-body .w-md-editor-toolbar li > button:hover {
+.editor-body .w-md-editor-toolbar li>button:hover {
   color: var(--color-text) !important;
   background: var(--color-bg-tertiary) !important;
 }
 
-.editor-body .w-md-editor-text-pre > code,
+.editor-body .w-md-editor-text-pre>code,
 .editor-body .w-md-editor-text-input {
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace !important;
   font-size: 14px !important;
@@ -333,5 +383,11 @@
   gap: 12px;
 }
 
-.editor-error span { font-size: 48px; }
-.editor-error h2 { font-size: 18px; color: var(--color-text-secondary); }
+.editor-error span {
+  font-size: 48px;
+}
+
+.editor-error h2 {
+  font-size: 18px;
+  color: var(--color-text-secondary);
+}
