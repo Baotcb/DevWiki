@@ -19,6 +19,8 @@ import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { DocumentAttachment } from './schemas/document.schema';
+import { NotificationGateway } from '../notifications/notification.gateway';
+import type { NotificationType } from '../notifications/notification.types';
 
 type UploadedFile = {
   originalname: string;
@@ -35,7 +37,25 @@ export class DocumentsService {
 
     @InjectModel(DocumentVersion.name)
     private readonly versionModel: Model<DocumentVersionDocument>,
+
+    private readonly notificationGateway: NotificationGateway,
   ) { }
+
+  private notify(
+    type: NotificationType,
+    message: string,
+    documentId: string,
+    actorId: string,
+  ): void {
+    this.notificationGateway.notify({
+      id: randomUUID(),
+      type,
+      message,
+      documentId,
+      createdAt: new Date().toISOString(),
+      actorId,
+    });
+  }
 
   private get uploadDir(): string {
     return process.env.UPLOAD_DIR || join(process.cwd(), 'uploads');
@@ -116,6 +136,8 @@ export class DocumentsService {
       changeSummary: dto.changeSummary || 'Tạo tài liệu',
       createdBy: new Types.ObjectId(user.sub),
     });
+
+    this.notify('DOCUMENT_CREATED', `Tài liệu "${doc.title}" đã được tạo mới.`, doc._id.toString(), user.sub);
 
     // TODO: Trigger background job để sinh embedding cho RAG
     // this.embeddingQueue.add({ documentId: doc._id.toString(), content: doc.content });
@@ -250,6 +272,12 @@ export class DocumentsService {
           { new: true },
         )
         .lean();
+      this.notify(
+        'DOCUMENT_ATTACHMENT_UPLOADED',
+        `File "${file.originalname}" đã được upload thành công.`,
+        id,
+        user.sub,
+      );
       return updated as DocumentDocument;
     } catch (error) {
       await unlink(join(this.uploadDir, storedName)).catch(() => undefined);
@@ -358,6 +386,10 @@ export class DocumentsService {
       .findByIdAndUpdate(id, { $set: updatePayload }, { new: true })
       .lean();
 
+    if (contentChanged || titleChanged) {
+      this.notify('DOCUMENT_UPDATED', `Tài liệu "${updated?.title ?? doc.title}" đã được lưu.`, id, user.sub);
+    }
+
     // TODO: Trigger re-embedding job nếu content thay đổi
     // if (contentChanged) this.embeddingQueue.add({ documentId: id, content: dto.content });
 
@@ -392,6 +424,8 @@ export class DocumentsService {
         { new: true },
       )
       .lean();
+
+    this.notify('DOCUMENT_OUTDATED', `Tài liệu "${doc.title}" đã được đánh dấu outdated.`, id, user.sub);
 
     return updated as DocumentDocument;
   }
