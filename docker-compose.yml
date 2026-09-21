@@ -64,14 +64,7 @@ services:
     networks:
       - frontend-network
     restart: always
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-    labels:
-      - "autoheal=true"  
+      
   nginx:
     image: nginx:stable-alpine
     container_name: devwiki-nginx
