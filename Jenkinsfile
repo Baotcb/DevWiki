@@ -89,7 +89,9 @@ pipeline {
                         string(credentialsId: 'devwiki-api-jwt-refresh-expires-in', variable: 'API_JWT_REFRESH_EXPIRES_IN'),
                         string(credentialsId: 'devwiki-mongo-username', variable: 'MONGO_USERNAME'),
                         string(credentialsId: 'devwiki-mongo-password', variable: 'MONGO_PASSWORD'),
-                        string(credentialsId: 'devwiki-mongo-database', variable: 'MONGO_DATABASE')
+                        string(credentialsId: 'devwiki-mongo-database', variable: 'MONGO_DATABASE'),
+                        string(credentialsId: 'devwiki-mongo-app-username', variable: 'MONGO_APP_USERNAME'),
+                        string(credentialsId: 'devwiki-mongo-app-password', variable: 'MONGO_APP_PASSWORD')
                     ]) {
                         withEnv([
                             "TARGET_VERSION=${targetVersion}",
@@ -125,6 +127,8 @@ pipeline {
                                     printf 'MONGO_USERNAME=%s\n' "$MONGO_USERNAME"
                                     printf 'MONGO_PASSWORD=%s\n' "$MONGO_PASSWORD"
                                     printf 'MONGO_DATABASE=%s\n' "$MONGO_DATABASE"
+                                    printf 'MONGO_APP_USERNAME=%s\n' "$MONGO_APP_USERNAME"
+                                    printf 'MONGO_APP_PASSWORD=%s\n' "$MONGO_APP_PASSWORD"
                                 } | sshpass -e ssh $SSH_OPTS "$REMOTE" "cat > '$REMOTE_RELEASE/.env'"
                                 sshpass -e scp $SSH_OPTS "$WORKSPACE/$IMAGE_API-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
                                 sshpass -e scp $SSH_OPTS "$WORKSPACE/$IMAGE_WEB-$DOCKER_TAG.tar.gz" "$REMOTE:$REMOTE_RELEASE/"
@@ -142,6 +146,8 @@ pipeline {
                                     printf 'MONGO_USERNAME=%s\n' "$MONGO_USERNAME"
                                     printf 'MONGO_PASSWORD=%s\n' "$MONGO_PASSWORD"
                                     printf 'MONGO_DATABASE=%s\n' "$MONGO_DATABASE"
+                                    printf 'MONGO_APP_USERNAME=%s\n' "$MONGO_APP_USERNAME"
+                                    printf 'MONGO_APP_PASSWORD=%s\n' "$MONGO_APP_PASSWORD"
                                 } | sshpass -e ssh $SSH_OPTS "$REMOTE" "cat > '$REMOTE_RELEASE/.env'"
                             fi
 

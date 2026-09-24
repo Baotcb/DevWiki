@@ -7,6 +7,8 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
       MONGO_INITDB_DATABASE: ${MONGO_DATABASE}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
     volumes:
       - mongodb_data:/data/db
     networks:
@@ -14,7 +16,7 @@ services:
     healthcheck:
       test: >
         mongosh --quiet --username "$${MONGO_USERNAME}" --password "$${MONGO_PASSWORD}"
-        --authenticationDatabase devwiki --eval "db.runCommand({ping:1}).ok" | grep -q '^1$$'
+        --authenticationDatabase admin --eval "db.runCommand({ping:1}).ok" | grep -q '^1$$'
       interval: 10s
       timeout: 5s
       retries: 6
@@ -32,7 +34,7 @@ services:
     env_file:
       - ./api.env
     environment:
-      MONGO_URI: ${MONGO_URI:-mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/${MONGO_DATABASE}?authSource=admin}
+      MONGO_URI: ${MONGO_URI:-mongodb://${MONGO_APP_USERNAME}:${MONGO_APP_PASSWORD}@mongodb:27017/${MONGO_DATABASE}?authSource=${MONGO_DATABASE}}
       UPLOAD_DIR: /app/uploads
     volumes:
       - devwiki_uploads:/app/uploads
