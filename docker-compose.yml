@@ -14,7 +14,7 @@ services:
     healthcheck:
       test: >
         mongosh --quiet --username "$${MONGO_USERNAME}" --password "$${MONGO_PASSWORD}"
-        --authenticationDatabase admin --eval "db.runCommand({ping:1}).ok" | grep -q '^1$$'
+        --authenticationDatabase devwiki --eval "db.runCommand({ping:1}).ok" | grep -q '^1$$'
       interval: 10s
       timeout: 5s
       retries: 6
