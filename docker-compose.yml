@@ -46,6 +46,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    labels:
+      - "autoheal=true"
 
 
 
@@ -85,7 +87,7 @@ services:
       - /home/JenkinsDeployer/docker/ssl:/etc/nginx/ssl:ro
       - /home/JenkinsDeployer/docker/logs/nginx:/var/log/nginx
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80/nginx-health"]
+      test: ["CMD", "wget", "-qO-", "https://localhost:443/nginx-health"]
       interval: 15s
       timeout: 5s
       retries: 3
