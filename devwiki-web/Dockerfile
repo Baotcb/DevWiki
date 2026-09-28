@@ -2,13 +2,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-ENV NODE_ENV=production
 
 COPY package*.json ./
 RUN npm ci
 
 COPY . .
 RUN npm run build
+
+ENV NODE_ENV=production
 
 RUN apk add --no-cache nginx \
     && mkdir -p /usr/share/nginx/html \
