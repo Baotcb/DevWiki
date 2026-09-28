@@ -3,6 +3,10 @@
 pipeline {
     agent any
 
+    options {
+        disableConcurrentBuilds()
+    }
+
     parameters {
         string(name: 'ROLLBACK_VERSION',        defaultValue: '', description: 'Version can rollback, vi du: v36')
         booleanParam(name: 'USE_LATEST_ENV',    defaultValue: false, description: 'Ghi de env moi nhat thay vi giu env cu cua version do')
@@ -29,12 +33,14 @@ pipeline {
 
         stage('Rollback On Target Server') {
             steps {
-                devwikiRollback(
-                    version:               params.ROLLBACK_VERSION,
-                    useLatestEnv:          params.USE_LATEST_ENV,
-                    restoreDatabase:       params.RESTORE_DATABASE,
-                    databaseBackupVersion: params.DATABASE_BACKUP_VERSION
-                )
+                lock('devwiki-production') {
+                    devwikiRollback(
+                        version:               params.ROLLBACK_VERSION,
+                        useLatestEnv:          params.USE_LATEST_ENV,
+                        restoreDatabase:       params.RESTORE_DATABASE,
+                        databaseBackupVersion: params.DATABASE_BACKUP_VERSION
+                    )
+                }
             }
         }
     }
