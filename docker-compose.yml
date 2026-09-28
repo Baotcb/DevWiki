@@ -15,8 +15,7 @@ services:
       - backend-network
     healthcheck:
       test: >
-        mongosh --quiet --username "$${MONGO_USERNAME}" --password "$${MONGO_PASSWORD}"
-        --authenticationDatabase admin --eval "db.runCommand({ping:1}).ok" | grep -q '^1$$'
+        mongosh --quiet --username "$${MONGO_USERNAME}" --password "$${MONGO_PASSWORD}" --authenticationDatabase admin --eval "db.runCommand({ping:1}).ok" | grep -q '^1$$'
       interval: 10s
       timeout: 5s
       retries: 6
@@ -41,7 +40,7 @@ services:
     depends_on:
       - mongodb
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:${PORT:-3000}/api/health"]
+      test: [ "CMD", "wget", "-qO-", "http://localhost:${PORT:-3000}/api/health" ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -49,7 +48,17 @@ services:
     labels:
       - "autoheal=true"
 
-
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: docker-proxy
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+      - ALLOW_RESTARTS=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - backend-network
 
   autoheal:
     image: willfarrell/autoheal
@@ -57,9 +66,11 @@ services:
     restart: always
     environment:
       - AUTOHEAL_CONTAINER_LABEL=autoheal
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-
+      - DOCKER_SOCK=tcp://docker-proxy:2375
+    networks:
+      - backend-network
+    depends_on:
+      - docker-proxy
 
   devwiki-web:
     image: devwiki-web:${APP_VERSION:-latest}
@@ -67,7 +78,7 @@ services:
     networks:
       - frontend-network
     restart: always
-      
+
   nginx:
     image: nginx:stable-alpine
     container_name: devwiki-nginx
@@ -87,13 +98,12 @@ services:
       - /home/JenkinsDeployer/docker/ssl:/etc/nginx/ssl:ro
       - /home/JenkinsDeployer/docker/logs/nginx:/var/log/nginx
     healthcheck:
-      test: ["CMD-SHELL", "curl -f -k https://127.0.0.1/nginx-health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f -k https://127.0.0.1/nginx-health || exit 1" ]
       interval: 15s
       timeout: 5s
       retries: 3
     labels:
       - "autoheal=true"
-    
 
 volumes:
   mongodb_data:
