@@ -16,7 +16,7 @@ RUN apk add --no-cache nginx \
     && cp -R dist/* /usr/share/nginx/html/ \
     && rm -rf /app/node_modules
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/http.d/default.conf
 
 EXPOSE 80
 
