@@ -3,6 +3,10 @@
 pipeline {
     agent any
 
+    options {
+        disableConcurrentBuilds()
+    }
+
     parameters {
         booleanParam(name: 'CREATE_DB_BACKUP', defaultValue: false, description: 'Tao file backup MongoDB (vXX.archive.gz) sau khi deploy xong')
     }
@@ -57,12 +61,14 @@ pipeline {
                 }
             }
             steps {
-                devwikiDeploy(
-                    imageApi:     IMAGE_API,
-                    imageWeb:     IMAGE_WEB,
-                    tag:          DOCKER_TAG,
-                    createBackup: params.CREATE_DB_BACKUP
-                )
+                lock('devwiki-production') {
+                    devwikiDeploy(
+                        imageApi:     IMAGE_API,
+                        imageWeb:     IMAGE_WEB,
+                        tag:          DOCKER_TAG,
+                        createBackup: params.CREATE_DB_BACKUP
+                    )
+                }
             }
         }
     }
