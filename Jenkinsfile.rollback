@@ -1,0 +1,53 @@
+@Library('devwiki-shared') _
+
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'ROLLBACK_VERSION',        defaultValue: '', description: 'Version can rollback, vi du: v36')
+        booleanParam(name: 'USE_LATEST_ENV',    defaultValue: false, description: 'Ghi de env moi nhat thay vi giu env cu cua version do')
+        booleanParam(name: 'RESTORE_DATABASE',  defaultValue: false, description: 'Phuc hoi MongoDB tu ban backup da luu truoc do')
+        string(name: 'DATABASE_BACKUP_VERSION', defaultValue: '', description: 'Version backup MongoDB can restore, vi du: v36')
+    }
+
+    stages {
+        stage('Validate Parameters') {
+            steps {
+                script {
+                    if (!params.ROLLBACK_VERSION?.trim()) {
+                        error('ROLLBACK_VERSION la bat buoc. Nhap tag can rollback, vi du: v36')
+                    }
+                    if (params.RESTORE_DATABASE && !params.DATABASE_BACKUP_VERSION?.trim()) {
+                        error('Da chon RESTORE_DATABASE nhung chua nhap DATABASE_BACKUP_VERSION')
+                    }
+                    echo "==> [ROLLBACK] Target  : ${params.ROLLBACK_VERSION}"
+                    echo "==> [ROLLBACK] Env mode: ${params.USE_LATEST_ENV ? 'moi nhat' : 'giu cu'}"
+                    echo "==> [ROLLBACK] Restore DB: ${params.RESTORE_DATABASE}"
+                }
+            }
+        }
+
+        stage('Rollback On Target Server') {
+            steps {
+                devwikiRollback(
+                    version:               params.ROLLBACK_VERSION,
+                    useLatestEnv:          params.USE_LATEST_ENV,
+                    restoreDatabase:       params.RESTORE_DATABASE,
+                    databaseBackupVersion: params.DATABASE_BACKUP_VERSION
+                )
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f "$WORKSPACE"/remote_rollback.sh || true'
+        }
+        success {
+            echo "==> [ROLLBACK] Thanh cong: ${params.ROLLBACK_VERSION}"
+        }
+        failure {
+            echo "==> [ROLLBACK] That bai khi rollback ve: ${params.ROLLBACK_VERSION}"
+        }
+    }
+}

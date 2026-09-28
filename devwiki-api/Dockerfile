@@ -1,39 +1,19 @@
-
-
-FROM node:20-alpine AS builder
-
+FROM node:20-alpine
 WORKDIR /app
-
 COPY package*.json ./
-
-
 RUN npm ci
-
-
 COPY . .
 
+RUN npm run build \
+    && npm prune --omit=dev \
+    && npm cache clean --force
 
-RUN npm run build
+RUN addgroup -S appgroup \
+    && adduser -S appuser -G appgroup \
+    && mkdir -p /app/uploads \
+    && chown -R appuser:appgroup /app/uploads \
+    && chmod -R 770 /app/uploads
 
-
-FROM node:20-alpine AS production
-
-WORKDIR /app
-
-
-COPY package*.json ./
-
-
-RUN npm ci --omit=dev && npm cache clean --force
-
-
-COPY --from=builder /app/dist ./dist
-
-
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-RUN mkdir -p /app/uploads && chown -R appuser:appgroup /app/uploads
 USER appuser
-
 EXPOSE 3000
-
 CMD ["node", "dist/main"]

@@ -1,0 +1,81 @@
+@Library('devwiki-shared') _
+
+pipeline {
+    agent any
+
+    parameters {
+        booleanParam(name: 'CREATE_DB_BACKUP', defaultValue: false, description: 'Tao file backup MongoDB (vXX.archive.gz) sau khi deploy xong')
+    }
+
+    triggers {
+        githubPush()
+    }
+
+    environment {
+        IMAGE_API  = 'devwiki-api'
+        IMAGE_WEB  = 'devwiki-web'
+        DOCKER_TAG = "v${env.BUILD_ID}"
+    }
+
+    stages {
+        stage('Prepare') {
+            steps {
+                echo "==> [DEPLOY] Build ${env.BUILD_ID} | Tag: ${env.DOCKER_TAG}"
+            }
+        }
+
+        stage('Build Docker Images') {
+            parallel {
+                stage('Build API') {
+                    steps {
+                        sh "docker build -t ${IMAGE_API}:${DOCKER_TAG} -t ${IMAGE_API}:latest --label build.id=${BUILD_ID} devwiki-api/"
+                    }
+                }
+                stage('Build Web') {
+                    steps {
+                        sh "docker build -t ${IMAGE_WEB}:${DOCKER_TAG} -t ${IMAGE_WEB}:latest --label build.id=${BUILD_ID} devwiki-web/"
+                    }
+                }
+            }
+        }
+
+        stage('Package Docker Images') {
+            steps {
+                sh '''
+                    set -eu
+                    docker save "$IMAGE_API:$DOCKER_TAG" | gzip > "$WORKSPACE/${IMAGE_API}-${DOCKER_TAG}.tar.gz"
+                    docker save "$IMAGE_WEB:$DOCKER_TAG" | gzip > "$WORKSPACE/${IMAGE_WEB}-${DOCKER_TAG}.tar.gz"
+                '''
+            }
+        }
+
+        stage('Deploy To Target Server') {
+            when {
+                expression {
+                    def branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
+                    return branch in ['main', 'master', 'origin/main', 'origin/master']
+                }
+            }
+            steps {
+                devwikiDeploy(
+                    imageApi:     IMAGE_API,
+                    imageWeb:     IMAGE_WEB,
+                    tag:          DOCKER_TAG,
+                    createBackup: params.CREATE_DB_BACKUP
+                )
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f "$WORKSPACE"/devwiki-api-v*.tar.gz "$WORKSPACE"/devwiki-web-v*.tar.gz "$WORKSPACE"/remote_deploy.sh || true'
+        }
+        success {
+            echo "==> [DEPLOY] Thanh cong: ${env.DOCKER_TAG}"
+        }
+        failure {
+            echo '==> [DEPLOY] That bai.'
+        }
+    }
+}
