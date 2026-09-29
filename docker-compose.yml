@@ -56,12 +56,16 @@ services:
     restart: unless-stopped
     environment:
       - CONTAINERS=1
-      - POST=0
+      - POST=1
       - ALLOW_RESTARTS=1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - autoheal-network
+    #read_only: true
+    #cap_drop: [ ALL ]
+    #security_opt:
+    #  - no-new-privileges:true
 
   autoheal:
     image: willfarrell/autoheal
