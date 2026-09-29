@@ -7,6 +7,8 @@ MIN_REPLICAS="${MIN_REPLICAS:-1}"
 MAX_REPLICAS="${MAX_REPLICAS:-4}"
 SCALE_UP_CPU="${SCALE_UP_CPU:-75}"
 SCALE_DOWN_CPU="${SCALE_DOWN_CPU:-30}"
+SCALE_UP_MEM="${SCALE_UP_MEM:-75}"
+SCALE_DOWN_MEM="${SCALE_DOWN_MEM:-30}"
 COOLDOWN="${COOLDOWN:-60}"
 CHECK_INTERVAL="${CHECK_INTERVAL:-30}"
 
@@ -49,6 +51,20 @@ get_avg_cpu() {
         | awk '{sum += $1; n++} END {if (n > 0) printf "%.1f", sum / n; else print "0"}'
 }
 
+get_avg_mem() {
+    local ids
+    ids=$(docker compose -f "$COMPOSE_FILE" ps -q "$SERVICE" 2>/dev/null | tr '\n' ' ')
+
+    if [ -z "$ids" ]; then
+        echo "0"
+        return
+    fi
+
+    docker stats --no-stream --format "{{.MemPerc}}" $ids 2>/dev/null \
+        | tr -d '%' \
+        | awk '{sum += $1; n++} END {if (n > 0) printf "%.1f", sum / n; else print "0"}'
+}
+
 do_scale() {
     local target="$1"
     local current="$2"
@@ -85,8 +101,8 @@ do_scale() {
 log "============================================"
 log "DevWiki API Auto-Scaler started"
 log "  Replicas : min=$MIN_REPLICAS  max=$MAX_REPLICAS"
-log "  Scale UP : avg CPU > ${SCALE_UP_CPU}%"
-log "  Scale DOWN: avg CPU < ${SCALE_DOWN_CPU}%"
+log "  Scale UP : avg CPU > ${SCALE_UP_CPU}% HOAC avg RAM > ${SCALE_UP_MEM}%"
+log "  Scale DOWN: avg CPU < ${SCALE_DOWN_CPU}% VA avg RAM < ${SCALE_DOWN_MEM}%"
 log "  Cooldown : ${COOLDOWN}s"
 log "  Interval : ${CHECK_INTERVAL}s"
 log "============================================"
@@ -94,27 +110,29 @@ log "============================================"
 while true; do
     replicas=$(get_replicas)
     avg_cpu=$(get_avg_cpu)
+    avg_mem=$(get_avg_mem)
     now=$(date +%s)
     since=$((now - last_scale_time))
 
     if [ "$since" -lt "$COOLDOWN" ]; then
         remaining=$((COOLDOWN - since))
-        log "CHECK: replicas=$replicas  avg_cpu=${avg_cpu}%  cooldown=${remaining}s"
+        log "CHECK: replicas=$replicas  avg_cpu=${avg_cpu}%  avg_mem=${avg_mem}%  cooldown=${remaining}s"
         sleep "$CHECK_INTERVAL"
         continue
     fi
 
-    log "CHECK: replicas=$replicas  avg_cpu=${avg_cpu}%  cooldown=ready"
+    log "CHECK: replicas=$replicas  avg_cpu=${avg_cpu}%  avg_mem=${avg_mem}%  cooldown=ready"
 
-    need_up=$(echo "$avg_cpu $SCALE_UP_CPU" | awk '{print ($1 > $2)}')
+
+    need_up=$(echo "$avg_cpu $SCALE_UP_CPU $avg_mem $SCALE_UP_MEM" | awk '{print ($1 > $2 || $3 > $4)}')
     if [ "$need_up" = "1" ] && [ "$replicas" -lt "$MAX_REPLICAS" ]; then
         do_scale $((replicas + 1)) "$replicas" "UP"
         sleep "$CHECK_INTERVAL"
         continue
     fi
 
-    
-    need_down=$(echo "$avg_cpu $SCALE_DOWN_CPU" | awk '{print ($1 < $2)}')
+
+    need_down=$(echo "$avg_cpu $SCALE_DOWN_CPU $avg_mem $SCALE_DOWN_MEM" | awk '{print ($1 < $2 && $3 < $4)}')
     if [ "$need_down" = "1" ] && [ "$replicas" -gt "$MIN_REPLICAS" ]; then
         do_scale $((replicas - 1)) "$replicas" "DOWN"
         sleep "$CHECK_INTERVAL"

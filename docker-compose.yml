@@ -91,6 +91,8 @@ services:
       - MAX_REPLICAS=4
       - SCALE_UP_CPU=75
       - SCALE_DOWN_CPU=30
+      - SCALE_UP_MEM=75
+      - SCALE_DOWN_MEM=30
       - COOLDOWN=60
       - CHECK_INTERVAL=30
     entrypoint: ["sh", "/project/autoscale.sh"]
