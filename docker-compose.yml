@@ -25,12 +25,9 @@ services:
 
   devwiki-api:
     image: devwiki-api:${APP_VERSION:-latest}
-    container_name: devwiki-api
     restart: always
     networks:
       backend-network:
-        aliases:
-          - devwiki-api.local
       frontend-network:
     env_file:
       - ./api.env
@@ -80,6 +77,28 @@ services:
     depends_on:
       - docker-proxy
 
+  autoscaler:
+    image: docker:27-cli
+    container_name: devwiki-autoscaler
+    restart: unless-stopped
+    working_dir: /project
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/project:ro
+      - autoscale_logs:/var/log/autoscale
+    environment:
+      - MIN_REPLICAS=1
+      - MAX_REPLICAS=4
+      - SCALE_UP_CPU=75
+      - SCALE_DOWN_CPU=30
+      - COOLDOWN=60
+      - CHECK_INTERVAL=30
+    entrypoint: ["sh", "/project/autoscale.sh"]
+    depends_on:
+      devwiki-api:
+        condition: service_healthy
+    network_mode: "none"
+
   devwiki-web:
     image: devwiki-web:${APP_VERSION:-latest}
     container_name: devwiki-web
@@ -119,6 +138,8 @@ volumes:
     external: true
   devwiki_uploads:
     name: devwiki-uploads
+  autoscale_logs:
+    name: devwiki-autoscale-logs
 
 networks:
   backend-network:
