@@ -56,12 +56,12 @@ services:
     restart: unless-stopped
     environment:
       - CONTAINERS=1
-      - POST=1
+      - POST=0
       - ALLOW_RESTARTS=1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - backend-network
+      - autoheal-network
 
   autoheal:
     image: willfarrell/autoheal
@@ -72,6 +72,7 @@ services:
       - DOCKER_SOCK=tcp://docker-proxy:2375
     networks:
       - backend-network
+      - autoheal-network
     depends_on:
       - docker-proxy
 
@@ -121,3 +122,7 @@ networks:
 
   frontend-network:
     driver: bridge
+
+  autoheal-network:
+    driver: bridge
+    internal: true
