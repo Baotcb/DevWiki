@@ -8,7 +8,16 @@ pipeline {
     }
 
     parameters {
-        booleanParam(name: 'CREATE_DB_BACKUP', defaultValue: false, description: 'Tao file backup MongoDB (vXX.archive.gz) sau khi deploy xong')
+        choice(
+            name:        'DEPLOY_ENV',
+            choices:     ['dev', 'prod'],
+            description: 'Moi truong can deploy (dev → branch develop | prod → branch main/master)'
+        )
+        booleanParam(
+            name:         'CREATE_DB_BACKUP',
+            defaultValue: false,
+            description:  'Tao file backup MongoDB (vXX.archive.gz) sau khi deploy xong'
+        )
     }
 
     triggers {
@@ -24,7 +33,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                echo "==> [DEPLOY] Build ${env.BUILD_ID} | Tag: ${env.DOCKER_TAG}"
+                echo "==> [DEPLOY] Build ${env.BUILD_ID} | Tag: ${env.DOCKER_TAG} | Env: ${params.DEPLOY_ENV}"
             }
         }
 
@@ -54,20 +63,34 @@ pipeline {
         }
 
         stage('Deploy To Target Server') {
-            when {
-                expression {
-                    def branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
-                    return branch in ['main', 'master', 'origin/main', 'origin/master']
-                }
-            }
             steps {
-                lock('devwiki-production') {
-                    devwikiDeploy(
-                        imageApi:     IMAGE_API,
-                        imageWeb:     IMAGE_WEB,
-                        tag:          DOCKER_TAG,
-                        createBackup: params.CREATE_DB_BACKUP
-                    )
+                script {
+                    def cfg    = envConfig(params.DEPLOY_ENV)
+                    def branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
+
+                    // --- Branch gate ---
+                    def allowed = cfg.allowedBranches.any { b -> branch == b || branch.endsWith("/${b}") }
+                    if (!allowed) {
+                        error "[DEPLOY] Branch '${branch}' khong duoc phep deploy len '${params.DEPLOY_ENV}'. Allowed: ${cfg.allowedBranches}"
+                    }
+
+                    // --- Approval gate (chi prod) ---
+                    if (cfg.requireApproval) {
+                        input(
+                            message: "⚠️ Xac nhan deploy ${env.DOCKER_TAG} len PRODUCTION?",
+                            ok:      'Deploy'
+                        )
+                    }
+
+                    lock(cfg.lockName) {
+                        devwikiDeploy(
+                            deployEnv:    params.DEPLOY_ENV,
+                            imageApi:     IMAGE_API,
+                            imageWeb:     IMAGE_WEB,
+                            tag:          DOCKER_TAG,
+                            createBackup: params.CREATE_DB_BACKUP
+                        )
+                    }
                 }
             }
         }
@@ -78,10 +101,10 @@ pipeline {
             sh 'rm -f "$WORKSPACE"/devwiki-api-v*.tar.gz "$WORKSPACE"/devwiki-web-v*.tar.gz "$WORKSPACE"/remote_deploy.sh || true'
         }
         success {
-            echo "==> [DEPLOY] Thanh cong: ${env.DOCKER_TAG}"
+            echo "==> [DEPLOY] Thanh cong: ${env.DOCKER_TAG} → ${params.DEPLOY_ENV}"
         }
         failure {
-            echo '==> [DEPLOY] That bai.'
+            echo "==> [DEPLOY] That bai: ${env.DOCKER_TAG} → ${params.DEPLOY_ENV}"
         }
     }
 }
