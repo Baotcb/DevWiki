@@ -34,15 +34,26 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    def branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
-
                     def isManual = currentBuild
                         .getBuildCauses('hudson.model.Cause$UserIdCause').size() > 0
 
                     if (isManual) {
                         env.EFFECTIVE_ENV = params.DEPLOY_ENV
-                        echo "==> [DEPLOY] Trigger: MANUAL | Env tu param: ${env.EFFECTIVE_ENV}"
+
+      
+                        def targetBranch = (env.EFFECTIVE_ENV == 'dev') ? 'develop' : 'main'
+                        echo "==> [DEPLOY] Trigger: MANUAL | Env: ${env.EFFECTIVE_ENV} | Auto-checkout branch: ${targetBranch}"
+                        checkout([
+                            $class: 'GitSCM',
+                            branches: [[name: "*/${targetBranch}"]],
+                            userRemoteConfigs: scm.userRemoteConfigs
+                        ])
+                        env.ACTUAL_BRANCH = targetBranch
+
                     } else {
+                        def branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
+                        env.ACTUAL_BRANCH = branch
+
                         if (branch == 'develop' || branch.endsWith('/develop')) {
                             env.EFFECTIVE_ENV = 'dev'
                         } else if (branch =~ /^(origin\/)?(main|master)$/) {
@@ -51,10 +62,10 @@ pipeline {
                             error "[DEPLOY] Webhook tu branch '${branch}' khong the tu dong xac dinh env. " +
                                   "Chi ho tro: develop → dev | main/master → prod"
                         }
-                        echo "==> [DEPLOY] Trigger: AUTO (Webhook) | Branch: ${branch} | Env tu dong: ${env.EFFECTIVE_ENV}"
+                        echo "==> [DEPLOY] Trigger: AUTO (Webhook) | Branch: ${branch} | Env: ${env.EFFECTIVE_ENV}"
                     }
 
-                    echo "==> [DEPLOY] Build ${env.BUILD_ID} | Tag: ${env.DOCKER_TAG} | Env: ${env.EFFECTIVE_ENV}"
+                    echo "==> [DEPLOY] Build ${env.BUILD_ID} | Tag: ${env.DOCKER_TAG} | Env: ${env.EFFECTIVE_ENV} | Branch: ${env.ACTUAL_BRANCH}"
                 }
             }
         }
@@ -87,17 +98,11 @@ pipeline {
         stage('Deploy To Target Server') {
             steps {
                 script {
-                    def cfg    = envConfig(env.EFFECTIVE_ENV)
-                    def branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
-
-                    def allowed = cfg.allowedBranches.any { b -> branch == b || branch.endsWith("/${b}") }
-                    if (!allowed) {
-                        error "[DEPLOY] Branch '${branch}' khong duoc phep deploy len '${env.EFFECTIVE_ENV}'. Allowed: ${cfg.allowedBranches}"
-                    }
+                    def cfg = envConfig(env.EFFECTIVE_ENV)
 
                     if (cfg.requireApproval) {
                         input(
-                            message: " Xac nhan deploy ${env.DOCKER_TAG} len PRODUCTION?",
+                            message: "Xac nhan deploy ${env.DOCKER_TAG} (branch: ${env.ACTUAL_BRANCH}) len PRODUCTION?",
                             ok:      'Deploy'
                         )
                     }
