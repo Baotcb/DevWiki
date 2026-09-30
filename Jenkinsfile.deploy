@@ -33,7 +33,29 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                echo "==> [DEPLOY] Build ${env.BUILD_ID} | Tag: ${env.DOCKER_TAG} | Env: ${params.DEPLOY_ENV}"
+                script {
+                    def branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
+
+                    def isManual = currentBuild
+                        .getBuildCauses('hudson.model.Cause$UserIdCause').size() > 0
+
+                    if (isManual) {
+                        env.EFFECTIVE_ENV = params.DEPLOY_ENV
+                        echo "==> [DEPLOY] Trigger: MANUAL | Env tu param: ${env.EFFECTIVE_ENV}"
+                    } else {
+                        if (branch == 'develop' || branch.endsWith('/develop')) {
+                            env.EFFECTIVE_ENV = 'dev'
+                        } else if (branch =~ /^(origin\/)?(main|master)$/) {
+                            env.EFFECTIVE_ENV = 'prod'
+                        } else {
+                            error "[DEPLOY] Webhook tu branch '${branch}' khong the tu dong xac dinh env. " +
+                                  "Chi ho tro: develop → dev | main/master → prod"
+                        }
+                        echo "==> [DEPLOY] Trigger: AUTO (Webhook) | Branch: ${branch} | Env tu dong: ${env.EFFECTIVE_ENV}"
+                    }
+
+                    echo "==> [DEPLOY] Build ${env.BUILD_ID} | Tag: ${env.DOCKER_TAG} | Env: ${env.EFFECTIVE_ENV}"
+                }
             }
         }
 
@@ -65,26 +87,24 @@ pipeline {
         stage('Deploy To Target Server') {
             steps {
                 script {
-                    def cfg    = envConfig(params.DEPLOY_ENV)
+                    def cfg    = envConfig(env.EFFECTIVE_ENV)
                     def branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: ''
 
-                    // --- Branch gate ---
                     def allowed = cfg.allowedBranches.any { b -> branch == b || branch.endsWith("/${b}") }
                     if (!allowed) {
-                        error "[DEPLOY] Branch '${branch}' khong duoc phep deploy len '${params.DEPLOY_ENV}'. Allowed: ${cfg.allowedBranches}"
+                        error "[DEPLOY] Branch '${branch}' khong duoc phep deploy len '${env.EFFECTIVE_ENV}'. Allowed: ${cfg.allowedBranches}"
                     }
 
-                    // --- Approval gate (chi prod) ---
                     if (cfg.requireApproval) {
                         input(
-                            message: "⚠️ Xac nhan deploy ${env.DOCKER_TAG} len PRODUCTION?",
+                            message: " Xac nhan deploy ${env.DOCKER_TAG} len PRODUCTION?",
                             ok:      'Deploy'
                         )
                     }
 
                     lock(cfg.lockName) {
                         devwikiDeploy(
-                            deployEnv:    params.DEPLOY_ENV,
+                            deployEnv:    env.EFFECTIVE_ENV,
                             imageApi:     IMAGE_API,
                             imageWeb:     IMAGE_WEB,
                             tag:          DOCKER_TAG,
@@ -101,10 +121,10 @@ pipeline {
             sh 'rm -f "$WORKSPACE"/devwiki-api-v*.tar.gz "$WORKSPACE"/devwiki-web-v*.tar.gz "$WORKSPACE"/remote_deploy.sh || true'
         }
         success {
-            echo "==> [DEPLOY] Thanh cong: ${env.DOCKER_TAG} → ${params.DEPLOY_ENV}"
+            echo "==> [DEPLOY] Thanh cong: ${env.DOCKER_TAG} → ${env.EFFECTIVE_ENV}"
         }
         failure {
-            echo "==> [DEPLOY] That bai: ${env.DOCKER_TAG} → ${params.DEPLOY_ENV}"
+            echo "==> [DEPLOY] That bai: ${env.DOCKER_TAG} → ${env.EFFECTIVE_ENV}"
         }
     }
 }
