@@ -11,7 +11,7 @@ pipeline {
         choice(
             name:        'DEPLOY_ENV',
             choices:     ['dev', 'prod'],
-            description: 'Moi truong can rollback'
+            description: 'Moi truong can rollback (dev | prod)'
         )
         string(
             name:         'ROLLBACK_VERSION',
@@ -35,20 +35,28 @@ pipeline {
         )
     }
 
+    environment {
+        IMAGE_API = 'devwiki-api'
+        IMAGE_WEB = 'devwiki-web'
+    }
+
     stages {
-        stage('Validate Parameters') {
+        stage('Prepare & Validate') {
             steps {
                 script {
+                    env.EFFECTIVE_ENV = params.DEPLOY_ENV
+
                     if (!params.ROLLBACK_VERSION?.trim()) {
-                        error('ROLLBACK_VERSION la bat buoc. Nhap tag can rollback, vi du: v36')
+                        error('[ROLLBACK] ROLLBACK_VERSION la bat buoc. Nhap tag can rollback, vi du: v36')
                     }
                     if (params.RESTORE_DATABASE && !params.DATABASE_BACKUP_VERSION?.trim()) {
-                        error('Da chon RESTORE_DATABASE nhung chua nhap DATABASE_BACKUP_VERSION')
+                        error('[ROLLBACK] Da chon RESTORE_DATABASE nhung chua nhap DATABASE_BACKUP_VERSION')
                     }
-                    echo "==> [ROLLBACK] Env     : ${params.DEPLOY_ENV}"
-                    echo "==> [ROLLBACK] Target  : ${params.ROLLBACK_VERSION}"
-                    echo "==> [ROLLBACK] Env mode: ${params.USE_LATEST_ENV ? 'moi nhat' : 'giu cu'}"
-                    echo "==> [ROLLBACK] Restore DB: ${params.RESTORE_DATABASE}"
+
+                    echo "==> [ROLLBACK] Env        : ${env.EFFECTIVE_ENV}"
+                    echo "==> [ROLLBACK] Target     : ${params.ROLLBACK_VERSION}"
+                    echo "==> [ROLLBACK] Env mode   : ${params.USE_LATEST_ENV ? 'Ghi de env moi nhat' : 'Giu nguyen env cu'}"
+                    echo "==> [ROLLBACK] Restore DB : ${params.RESTORE_DATABASE ? params.DATABASE_BACKUP_VERSION : 'Khong'}"
                 }
             }
         }
@@ -56,18 +64,21 @@ pipeline {
         stage('Rollback On Target Server') {
             steps {
                 script {
-                    def cfg = envConfig(params.DEPLOY_ENV)
+                    def cfg = envConfig(env.EFFECTIVE_ENV)
+
                     if (cfg.requireApproval) {
                         input(
-                            message: " Xac nhan rollback ve ${params.ROLLBACK_VERSION} tren PRODUCTION?",
+                            message: "Xac nhan rollback ve ${params.ROLLBACK_VERSION} tren ${env.EFFECTIVE_ENV.toUpperCase()}?",
                             ok:      'Rollback'
                         )
                     }
 
                     lock(cfg.lockName) {
                         devwikiRollback(
-                            deployEnv:             params.DEPLOY_ENV,
+                            deployEnv:             env.EFFECTIVE_ENV,
                             version:               params.ROLLBACK_VERSION,
+                            imageApi:              IMAGE_API,
+                            imageWeb:              IMAGE_WEB,
                             useLatestEnv:          params.USE_LATEST_ENV,
                             restoreDatabase:       params.RESTORE_DATABASE,
                             databaseBackupVersion: params.DATABASE_BACKUP_VERSION
@@ -83,10 +94,10 @@ pipeline {
             sh 'rm -f "$WORKSPACE"/remote_rollback.sh || true'
         }
         success {
-            echo "==> [ROLLBACK] Thanh cong: ${params.ROLLBACK_VERSION} → ${params.DEPLOY_ENV}"
+            echo "==> [ROLLBACK] Thanh cong: ${params.ROLLBACK_VERSION} → ${env.EFFECTIVE_ENV}"
         }
         failure {
-            echo "==> [ROLLBACK] That bai khi rollback ve: ${params.ROLLBACK_VERSION} → ${params.DEPLOY_ENV}"
+            echo "==> [ROLLBACK] That bai khi rollback ve: ${params.ROLLBACK_VERSION} → ${env.EFFECTIVE_ENV}"
         }
     }
 }
